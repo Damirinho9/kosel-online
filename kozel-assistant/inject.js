@@ -1,0 +1,46 @@
+/**
+ * Скрипт внедрения для доступа к Angular scope
+ * Выполняется в контексте страницы (world: MAIN)
+ */
+
+(function() {
+    console.log('[Inject] Внедрение в контекст страницы...');
+
+    window.__kozelGetGameState = function() {
+        const gameTable = document.querySelector('game-table');
+        if (!gameTable) return null;
+
+        try {
+            const scope = angular.element(gameTable).scope();
+            if (!scope) return null;
+
+            return {
+                myCards: scope.bottomCards || [],
+                tableCards: scope.centreCards || [],
+                topCards: (scope.topCards || []).length,
+                leftCards: (scope.leftCards || []).length,
+                rightCards: (scope.rightCards || []).length,
+                players: {
+                    top: scope.topPlayerName || '',
+                    left: scope.leftPlayerName || '',
+                    right: scope.rightPlayerName || ''
+                },
+                score: scope.scoreWindow?.gameScore || [0, 0],
+                myTurn: scope.bottomCards?.some(c => c.allowClick) || false
+            };
+        } catch(e) {
+            console.error('[Козёл Помощник] Ошибка получения scope:', e);
+            return null;
+        }
+    };
+
+    // Обработчик сообщений для content script
+    window.addEventListener('message', function(event) {
+        if (event.data.type === 'GET_GAME_STATE') {
+            const state = window.__kozelGetGameState();
+            window.postMessage({ type: 'GAME_STATE_RESPONSE', state: state }, '*');
+        }
+    });
+
+    console.log('[Inject] ✓ Функции доступа к игре созданы');
+})();
