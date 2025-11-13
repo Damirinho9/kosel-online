@@ -42,14 +42,4 @@ async function updateStats(data) {
     await chrome.storage.local.set({ stats });
 }
 
-// Проверка обновлений
-chrome.alarms.create('checkUpdates', { periodInMinutes: 60 });
-
-chrome.alarms.onAlarm.addListener((alarm) => {
-    if (alarm.name === 'checkUpdates') {
-        console.log('[Козёл Помощник] Проверка обновлений...');
-        // Здесь можно добавить логику проверки обновлений
-    }
-});
-
 console.log('[Козёл Помощник] Background script загружен');
