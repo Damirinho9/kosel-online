@@ -11,7 +11,11 @@
         if (!gameTable) return null;
 
         try {
-            const scope = angular.element(gameTable).scope();
+            // Ищем div.game-table внутри game-table - у него правильный scope
+            const gameTableDiv = gameTable.querySelector('.game-table');
+            if (!gameTableDiv) return null;
+
+            const scope = angular.element(gameTableDiv).scope();
             if (!scope) return null;
 
             return {
