@@ -1,33 +1,38 @@
 # Установка TensorFlow.js для ML функций
 
-## Быстрая установка
+## ⚠️ Важно: Ручная установка обязательна
 
-### Вариант 1: Автоматическая установка (рекомендуется)
+**Файл TensorFlow.js необходимо скачать вручную из браузера.**
+CDN может блокировать автоматические запросы.
 
-Выполните в терминале из папки `kozel-assistant`:
+## Пошаговая инструкция
 
-```bash
-cd lib
-curl -o tf.min.js "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"
-```
+**Способ 1 (рекомендуется):**
 
-Или:
-
-```bash
-cd lib
-wget "https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js" -O tf.min.js
-```
-
-### Вариант 2: Ручная установка
-
-1. Откройте в браузере:
+1. **Откройте в браузере Chrome:**
    ```
    https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js
    ```
 
-2. Сохраните файл как `tf.min.js` (Ctrl+S)
+2. **Нажмите Ctrl+S (или Cmd+S на Mac)** для сохранения
 
-3. Поместите файл в папку `kozel-assistant/lib/`
+3. **Выберите папку:** `kozel-assistant/lib/`
+
+4. **Имя файла:** `tf.min.js` (точно так!)
+
+5. **Проверьте размер:** должно быть ~1.4-1.8 MB
+
+**Способ 2 (альтернативный):**
+
+1. Скачайте с альтернативного CDN:
+   ```
+   https://unpkg.com/@tensorflow/tfjs@4.11.0/dist/tf.min.js
+   ```
+
+2. Или напрямую с GitHub:
+   ```
+   https://github.com/tensorflow/tfjs/releases/download/tfjs-v4.11.0/tf.min.js
+   ```
 
 ### Проверка установки
 

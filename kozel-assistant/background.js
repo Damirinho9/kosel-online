@@ -6,24 +6,39 @@
 let mlInitialized = false;
 let mlModel = null;
 let mlEncoder = null;
+let mlLoadError = null;
 
 // Загружаем TensorFlow.js и ML модули
 try {
     // Импортируем TensorFlow.js из локального файла
     importScripts('lib/tf.min.js');
 
+    // Проверяем, что TensorFlow.js действительно загрузился
+    if (typeof tf === 'undefined') {
+        throw new Error('TensorFlow.js не загрузился. Возможно файл lib/tf.min.js пуст или поврежден.');
+    }
+
     // Импортируем ML модули
     importScripts('ai/card.js');
     importScripts('ai/ml-encoder.js');
     importScripts('ai/ml-model.js');
 
-    console.log('[Background ML] ✓ TensorFlow.js загружен:', typeof tf !== 'undefined' ? tf.version.tfjs : 'error');
+    console.log('[Background ML] ✓ TensorFlow.js загружен:', tf.version.tfjs);
 
     // Инициализируем ML
     initializeML();
 } catch (error) {
+    mlLoadError = error.message;
     console.warn('[Background ML] ⚠️ ML недоступен:', error.message);
-    console.log('[Background ML] Расширение продолжит работу без ML');
+
+    if (error.message.includes('пуст') || error.message.includes('не загрузился')) {
+        console.log('[Background ML] 📥 Скачайте TensorFlow.js:');
+        console.log('[Background ML]    1. Откройте: https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js');
+        console.log('[Background ML]    2. Сохраните файл в kozel-assistant/lib/tf.min.js');
+        console.log('[Background ML]    3. Перезагрузите расширение');
+    }
+
+    console.log('[Background ML] ℹ️ Расширение продолжит работу без ML (основной AI работает)');
 }
 
 /**
@@ -100,7 +115,8 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         sendResponse({
             initialized: mlInitialized,
             available: typeof tf !== 'undefined',
-            stats: mlModel ? mlModel.getStats() : null
+            stats: mlModel ? mlModel.getStats() : null,
+            error: mlLoadError
         });
     }
 
