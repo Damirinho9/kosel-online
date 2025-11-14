@@ -53,7 +53,9 @@
     window.addEventListener('message', function(event) {
         if (event.data.type === 'GET_GAME_STATE') {
             const state = window.__kozelGetGameState();
-            window.postMessage({ type: 'GAME_STATE_RESPONSE', state: state }, '*');
+            // Глубокое клонирование через JSON для удаления всех функций
+            const cleanState = JSON.parse(JSON.stringify(state));
+            window.postMessage({ type: 'GAME_STATE_RESPONSE', state: cleanState }, '*');
         }
     });
 
