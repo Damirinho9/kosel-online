@@ -21,7 +21,7 @@ async function loadGameState() {
         const response = await chrome.tabs.sendMessage(tab.id, { action: 'getGameState' });
 
         if (response && response.gameState) {
-            renderGameState(response.gameState, response.enabled, response.stats, response.playerProfiles);
+            renderGameState(response.gameState, response.enabled, response.stats, response.playerProfiles, response.mlEnabled, response.mlStats);
         } else {
             showWaiting();
         }
@@ -32,7 +32,7 @@ async function loadGameState() {
     }
 }
 
-function renderGameState(gameState, enabled, stats, playerProfiles) {
+function renderGameState(gameState, enabled, stats, playerProfiles, mlEnabled = false, mlStats = null) {
     const { myCards, tableCards, myTurn, teams, partner, scoreWindow, recommendation } = gameState;
 
     let html = `
@@ -186,6 +186,46 @@ function renderGameState(gameState, enabled, stats, playerProfiles) {
         }
     }
 
+    // V2.0 Phase 3: ML статистика
+    if (mlEnabled && mlStats) {
+        html += `
+            <div class="status" style="background: rgba(13, 110, 253, 0.2); margin-top: 15px; border: 1px solid rgba(13, 110, 253, 0.4);">
+                <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">🧠 Machine Learning</div>
+                <div class="status-item">
+                    <span class="status-label">Статус:</span>
+                    <span class="status-value">✓ Активен</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Предсказаний:</span>
+                    <span class="status-value">${mlStats.predictions || 0}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Обучений:</span>
+                    <span class="status-value">${mlStats.trainingSessions || 0}</span>
+                </div>
+        `;
+
+        if (mlStats.lastLoss !== null) {
+            html += `
+                <div class="status-item">
+                    <span class="status-label">Loss:</span>
+                    <span class="status-value">${mlStats.lastLoss.toFixed(4)}</span>
+                </div>
+            `;
+        }
+
+        html += `</div>`;
+    } else if (!mlEnabled) {
+        html += `
+            <div class="status" style="background: rgba(108, 117, 125, 0.2); margin-top: 15px;">
+                <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">🧠 Machine Learning</div>
+                <div style="text-align: center; font-size: 12px; color: #888; padding: 10px;">
+                    ML отключен или загружается...
+                </div>
+            </div>
+        `;
+    }
+
     // Кнопки
     html += `
         <button class="btn ${enabled ? 'btn-danger' : 'btn-primary'}" id="toggle-btn">
@@ -196,11 +236,58 @@ function renderGameState(gameState, enabled, stats, playerProfiles) {
         </button>
     `;
 
+    // Кнопка обучения ML (если ML активен)
+    if (mlEnabled) {
+        html += `
+            <button class="btn btn-secondary" id="train-ml-btn" style="margin-top: 5px;">
+                🧠 Обучить ML
+            </button>
+        `;
+    }
+
     document.getElementById('content').innerHTML = html;
 
     // Обработчики кнопок
     document.getElementById('toggle-btn').addEventListener('click', toggleAssistant);
     document.getElementById('refresh-btn').addEventListener('click', loadGameState);
+
+    // Обработчик кнопки обучения ML
+    if (mlEnabled) {
+        const trainBtn = document.getElementById('train-ml-btn');
+        if (trainBtn) {
+            trainBtn.addEventListener('click', async () => {
+                trainBtn.disabled = true;
+                trainBtn.textContent = '⏳ Обучение...';
+
+                try {
+                    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+                    const response = await chrome.tabs.sendMessage(tab.id, { action: 'trainML' });
+
+                    if (response && response.success) {
+                        trainBtn.textContent = '✓ Готово!';
+                        setTimeout(() => {
+                            trainBtn.textContent = '🧠 Обучить ML';
+                            trainBtn.disabled = false;
+                            loadGameState();
+                        }, 2000);
+                    } else {
+                        trainBtn.textContent = '✗ Ошибка';
+                        setTimeout(() => {
+                            trainBtn.textContent = '🧠 Обучить ML';
+                            trainBtn.disabled = false;
+                        }, 2000);
+                    }
+                } catch (error) {
+                    console.error('Ошибка обучения ML:', error);
+                    trainBtn.textContent = '✗ Ошибка';
+                    setTimeout(() => {
+                        trainBtn.textContent = '🧠 Обучить ML';
+                        trainBtn.disabled = false;
+                    }, 2000);
+                }
+            });
+        }
+    }
 }
 
 function showNotOnSite() {

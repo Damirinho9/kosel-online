@@ -5,9 +5,10 @@ class KozelAI {
     /**
      * Выбрать лучшую карту для хода
      * @param {Object} gameState - полное состояние игры
+     * @param {Object} mlModel - ML модель (опционально)
      * @returns {Object} {cardIndex, card, reasoning}
      */
-    static chooseCard(gameState) {
+    static async chooseCard(gameState, mlModel = null) {
         const { myCards, tableCards, myTeamScore, opponentScore, pointsInKon } = gameState;
 
         // Получаем легальные карты
@@ -23,6 +24,29 @@ class KozelAI {
                 card: legalCards[0],
                 reasoning: 'Единственная легальная карта'
             };
+        }
+
+        // V2.0 Phase 3: Попытка ML предсказания
+        let mlPrediction = null;
+        if (mlModel && mlModel.modelLoaded) {
+            try {
+                mlPrediction = await mlModel.predictBestCard(gameState, legalCards);
+
+                if (mlPrediction && mlPrediction.card && mlPrediction.confidence > 0.6) {
+                    console.log(`[AI ML] 🧠 ML рекомендует: ${mlPrediction.card.toString()} (${(mlPrediction.confidence * 100).toFixed(1)}%)`);
+
+                    // Высокая уверенность - используем ML
+                    if (mlPrediction.confidence > 0.8) {
+                        return {
+                            cardIndex: myCards.indexOf(mlPrediction.card),
+                            card: mlPrediction.card,
+                            reasoning: `🧠 ML: ${(mlPrediction.confidence * 100).toFixed(0)}% уверенности`
+                        };
+                    }
+                }
+            } catch (error) {
+                console.error('[AI ML] Ошибка ML предсказания:', error);
+            }
         }
 
         // Анализируем ситуацию

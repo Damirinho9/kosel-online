@@ -24,11 +24,14 @@
       "js": [
         "ai/card.js",
         "ai/rules.js",
-        "ai/strategy.js",
         "ai/scoring.js",
         "ai/statistics.js",
         "ai/profiler.js",
         "ai/move-history.js",
+        "ai/ml-loader.js",
+        "ai/ml-encoder.js",
+        "ai/ml-model.js",
+        "ai/strategy.js",
         "content.js"
       ],
       "css": ["styles/extension.css"],
@@ -56,5 +59,9 @@
       "resources": ["inject.js"],
       "matches": ["https://kozel-online.com/*"]
     }
-  ]
+  ],
+
+  "content_security_policy": {
+    "extension_pages": "script-src 'self' https://cdn.jsdelivr.net; object-src 'self'"
+  }
 }

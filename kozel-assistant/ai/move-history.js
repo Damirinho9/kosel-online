@@ -251,6 +251,126 @@ class MoveHistory {
             avgPoints: avgPoints.toFixed(1)
         };
     }
+
+    /**
+     * ML: Подготовить обучающие данные из истории
+     */
+    async prepareMLTrainingData() {
+        const history = await this.loadHistory();
+
+        if (!history.games || history.games.length === 0) {
+            return [];
+        }
+
+        const trainingData = [];
+
+        // Используем только завершённые игры
+        for (const game of history.games) {
+            if (!game.moves || game.moves.length === 0) continue;
+
+            // Определяем награду за игру
+            const gameReward = game.result === 'win' ? 1.0 : 0.0;
+
+            // Каждый ход - это обучающий пример
+            for (let i = 0; i < game.moves.length; i++) {
+                const move = game.moves[i];
+
+                // Рассчитываем награду для хода
+                let reward = 0.5;  // Базовая награда
+
+                // Бонусы/штрафы
+                if (move.trickWon) {
+                    reward += 0.2;  // Взяли взятку
+                    if (move.pointsGained > 0) {
+                        reward += Math.min(0.3, move.pointsGained / 30);  // Очки
+                    }
+                }
+
+                // Учитываем результат игры
+                reward = reward * 0.7 + gameReward * 0.3;
+
+                // Следовал ли игрок рекомендации AI
+                const followedAI = move.wasRecommended;
+
+                trainingData.push({
+                    gameId: game.gameId,
+                    moveIndex: i,
+                    state: move,  // Состояние до хода
+                    action: move.playedCard,
+                    reward: reward,
+                    followedAI: followedAI,
+                    gameResult: game.result
+                });
+            }
+        }
+
+        console.log(`[MoveHistory ML] Подготовлено ${trainingData.length} обучающих примеров из ${history.games.length} игр`);
+
+        return trainingData;
+    }
+
+    /**
+     * ML: Экспортировать данные для анализа
+     */
+    async exportMLData() {
+        const history = await this.loadHistory();
+        const trainingData = await this.prepareMLTrainingData();
+
+        return {
+            metadata: {
+                totalGames: history.games?.length || 0,
+                totalMoves: history.allMoves?.length || 0,
+                trainingExamples: trainingData.length,
+                exportDate: new Date().toISOString()
+            },
+            games: history.games || [],
+            trainingData: trainingData
+        };
+    }
+
+    /**
+     * ML: Получить последние N игр для обучения
+     */
+    async getRecentGamesForTraining(count = 10) {
+        const history = await this.loadHistory();
+
+        if (!history.games || history.games.length === 0) {
+            return [];
+        }
+
+        // Берём последние N игр
+        const recentGames = history.games.slice(0, count);
+
+        // Подготавливаем обучающие данные
+        const trainingData = [];
+
+        for (const game of recentGames) {
+            if (!game.moves || game.moves.length === 0) continue;
+
+            const gameReward = game.result === 'win' ? 1.0 : 0.0;
+
+            for (const move of game.moves) {
+                let reward = 0.5;
+
+                if (move.trickWon) {
+                    reward += 0.2;
+                    if (move.pointsGained > 0) {
+                        reward += Math.min(0.3, move.pointsGained / 30);
+                    }
+                }
+
+                reward = reward * 0.7 + gameReward * 0.3;
+
+                trainingData.push({
+                    state: move,
+                    action: move.playedCard,
+                    reward: reward
+                });
+            }
+        }
+
+        return trainingData;
+    }
 }
 
 // Экспорт
