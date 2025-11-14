@@ -37,18 +37,45 @@
                 return result;
             };
 
+            // Определяем команды (классический Козёл 2х2)
+            const myTeamIndex = 0;  // Мы с игроком напротив (top)
+            const opponentTeamIndex = 1;  // Игроки слева и справа
+
             return {
                 myCards: (scope.bottomCards || []).map(serializeCard).filter(c => c !== null),
                 tableCards: (scope.centreCards || []).map(serializeCard).filter(c => c !== null),
                 topCards: (scope.topCards || []).length,
                 leftCards: (scope.leftCards || []).length,
                 rightCards: (scope.rightCards || []).length,
+
+                // Игроки и партнёр
                 players: {
                     top: scope.topPlayerName || '',
                     left: scope.leftPlayerName || '',
-                    right: scope.rightPlayerName || ''
+                    right: scope.rightPlayerName || '',
+                    bottom: 'Вы'
                 },
-                score: scope.scoreWindow?.gameScore || [0, 0],
+                partner: scope.topPlayerName || '',  // Партнёр всегда напротив (top)
+
+                // Счёт
+                scoreWindow: scope.scoreWindow ? {
+                    roundScore: scope.scoreWindow.roundScore || 0,  // Очки текущего раунда
+                    gameScore: scope.scoreWindow.gameScore || [0, 0],  // Счёт партий [команда1, команда2]
+                    score: scope.scoreWindow.score || [0, 0],  // Очки в раунде [команда1, команда2]
+                    win: scope.scoreWindow.win || false,  // Окно победы
+                    visible: scope.scoreWindow.visible || false
+                } : null,
+
+                // Команды
+                teams: {
+                    myTeam: myTeamIndex,
+                    opponentTeam: opponentTeamIndex,
+                    myScore: (scope.scoreWindow?.score || [0, 0])[myTeamIndex],
+                    opponentScore: (scope.scoreWindow?.score || [0, 0])[opponentTeamIndex],
+                    myGames: (scope.scoreWindow?.gameScore || [0, 0])[myTeamIndex],
+                    opponentGames: (scope.scoreWindow?.gameScore || [0, 0])[opponentTeamIndex]
+                },
+
                 myTurn: scope.currentMove === 'bottom'  // Определяем ход по currentMove
             };
         } catch(e) {

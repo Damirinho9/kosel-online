@@ -9,9 +9,12 @@ class KozelAssistant {
         this.overlayElement = null;
         this.enabled = true;
         this.highlightedCard = null;
+        this.stats = null;
+        this.lastGameScore = null; // Для отслеживания конца игры
 
         console.log('[Козёл Помощник] Инициализация...');
         this.init();
+        this.initStatistics();
     }
 
     init() {
@@ -26,13 +29,25 @@ class KozelAssistant {
         // Слушаем сообщения от popup
         chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             if (msg.action === 'getGameState') {
-                sendResponse({ gameState: this.gameState, enabled: this.enabled });
+                sendResponse({ gameState: this.gameState, enabled: this.enabled, stats: this.stats });
             } else if (msg.action === 'toggle') {
                 this.enabled = !this.enabled;
                 this.updateOverlay();
                 sendResponse({ enabled: this.enabled });
+            } else if (msg.action === 'getStats') {
+                sendResponse({ stats: this.stats });
             }
         });
+    }
+
+    /**
+     * Инициализация системы статистики
+     */
+    async initStatistics() {
+        if (typeof GameStatistics !== 'undefined') {
+            this.statsManager = new GameStatistics();
+            this.stats = await this.statsManager.getStats();
+        }
     }
 
     /**
@@ -124,13 +139,32 @@ class KozelAssistant {
         const content = document.getElementById('ka-content');
         if (!content) return;
 
-        const { myCards, tableCards, myTurn, score, recommendation } = this.gameState;
+        const { myCards, tableCards, myTurn, teams, partner, scoreWindow, recommendation } = this.gameState;
 
-        let html = `
-            <div class="ka-score">
-                <div>Счёт: <strong>${score[1]}</strong> : ${score[0]}</div>
-            </div>
-        `;
+        let html = '';
+
+        // Отображаем счёт партий и раунда
+        if (scoreWindow) {
+            html += `
+                <div class="ka-score">
+                    <div style="font-weight: bold; margin-bottom: 5px;">
+                        Партии: ${teams.myGames} : ${teams.opponentGames}
+                    </div>
+                    <div style="font-size: 12px;">
+                        Раунд: ${teams.myScore} : ${teams.opponentScore}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Партнёр
+        if (partner) {
+            html += `
+                <div class="ka-partner" style="font-size: 11px; color: #888; margin: 5px 0;">
+                    Партнёр: ${partner}
+                </div>
+            `;
+        }
 
         if (!myTurn) {
             html += '<div class="ka-waiting">⏳ Ожидание вашего хода...</div>';
@@ -186,17 +220,60 @@ class KozelAssistant {
                 myCards: myCards,
                 tableCards: tableCards,
                 myTurn: angularState.myTurn,
-                score: angularState.score,
+
+                // Счёт и команды
+                scoreWindow: angularState.scoreWindow,
+                teams: angularState.teams,
+                partner: angularState.partner,
                 players: angularState.players,
-                myTeamScore: angularState.score[1],
-                opponentScore: angularState.score[0],
+
+                // Для совместимости со старым кодом
+                score: angularState.scoreWindow?.gameScore || [0, 0],
+                myTeamScore: angularState.teams?.myScore || 0,
+                opponentScore: angularState.teams?.opponentScore || 0,
                 pointsInKon: 0, // TODO: можно вычислять из истории взяток
                 konNumber: 1 // TODO: определять номер кона
             };
 
+            // Проверка конца игры для записи статистики
+            this.checkGameEnd();
+
         } catch (error) {
             console.error('[Козёл Помощник] Ошибка парсинга:', error);
             this.gameState = null;
+        }
+    }
+
+    /**
+     * Проверить конец игры и записать статистику
+     */
+    async checkGameEnd() {
+        if (!this.gameState || !this.gameState.scoreWindow) return;
+
+        const { scoreWindow, teams, partner } = this.gameState;
+
+        // Проверяем если это окно победы и счёт изменился
+        if (scoreWindow.win && scoreWindow.visible) {
+            const currentGameScore = JSON.stringify(scoreWindow.gameScore);
+
+            // Если это новая игра (счёт изменился)
+            if (this.lastGameScore && this.lastGameScore !== currentGameScore) {
+                // Записываем результат в статистику
+                if (this.statsManager) {
+                    await this.statsManager.recordGame({
+                        myGames: teams.myGames,
+                        opponentGames: teams.opponentGames,
+                        myScore: teams.myScore,
+                        opponentScore: teams.opponentScore,
+                        partner: partner
+                    });
+
+                    // Обновляем статистику
+                    this.stats = await this.statsManager.getStats();
+                }
+            }
+
+            this.lastGameScore = currentGameScore;
         }
     }
 

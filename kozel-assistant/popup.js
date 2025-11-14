@@ -21,7 +21,7 @@ async function loadGameState() {
         const response = await chrome.tabs.sendMessage(tab.id, { action: 'getGameState' });
 
         if (response && response.gameState) {
-            renderGameState(response.gameState, response.enabled);
+            renderGameState(response.gameState, response.enabled, response.stats);
         } else {
             showWaiting();
         }
@@ -32,8 +32,8 @@ async function loadGameState() {
     }
 }
 
-function renderGameState(gameState, enabled) {
-    const { myCards, tableCards, myTurn, score, recommendation } = gameState;
+function renderGameState(gameState, enabled, stats) {
+    const { myCards, tableCards, myTurn, teams, partner, scoreWindow, recommendation } = gameState;
 
     let html = `
         <div class="status">
@@ -41,10 +41,33 @@ function renderGameState(gameState, enabled) {
                 <span class="status-label">Статус:</span>
                 <span class="status-value">${enabled ? '✓ Активен' : '✗ Выключен'}</span>
             </div>
+    `;
+
+    // Счёт игры
+    if (teams) {
+        html += `
             <div class="status-item">
-                <span class="status-label">Счёт:</span>
-                <span class="status-value">${score[1]} : ${score[0]}</span>
+                <span class="status-label">Партии:</span>
+                <span class="status-value">${teams.myGames} : ${teams.opponentGames}</span>
             </div>
+            <div class="status-item">
+                <span class="status-label">Раунд:</span>
+                <span class="status-value">${teams.myScore} : ${teams.opponentScore}</span>
+            </div>
+        `;
+    }
+
+    // Партнёр
+    if (partner) {
+        html += `
+            <div class="status-item">
+                <span class="status-label">Партнёр:</span>
+                <span class="status-value">${partner}</span>
+            </div>
+        `;
+    }
+
+    html += `
             <div class="status-item">
                 <span class="status-label">Ваш ход:</span>
                 <span class="status-value">${myTurn ? '✓ Да' : '✗ Нет'}</span>
@@ -56,6 +79,7 @@ function renderGameState(gameState, enabled) {
         </div>
     `;
 
+    // Рекомендация
     if (myTurn && recommendation && enabled) {
         html += `
             <div class="recommendation">
@@ -65,6 +89,61 @@ function renderGameState(gameState, enabled) {
         `;
     }
 
+    // Статистика (если есть)
+    if (stats && stats.totalGames > 0) {
+        const winRate = ((stats.wins / stats.totalGames) * 100).toFixed(1);
+        const avgMyScore = Math.round(stats.totalPoints / stats.totalGames);
+        const avgOppScore = Math.round(stats.totalOpponentPoints / stats.totalGames);
+
+        // Текущая серия
+        let streak = { type: null, count: 0 };
+        if (stats.gamesHistory && stats.gamesHistory.length > 0) {
+            const firstResult = stats.gamesHistory[0].result;
+            let count = 0;
+            for (const game of stats.gamesHistory) {
+                if (game.result === firstResult) count++;
+                else break;
+            }
+            streak = { type: firstResult, count };
+        }
+
+        html += `
+            <div class="status" style="background: rgba(0, 0, 0, 0.4); margin-top: 15px;">
+                <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">📊 Статистика</div>
+                <div class="status-item">
+                    <span class="status-label">Всего игр:</span>
+                    <span class="status-value">${stats.totalGames}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Win Rate:</span>
+                    <span class="status-value">${winRate}%</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Побед:</span>
+                    <span class="status-value">${stats.wins} | Поражений: ${stats.losses}</span>
+                </div>
+                <div class="status-item">
+                    <span class="status-label">Средний счёт:</span>
+                    <span class="status-value">${avgMyScore} : ${avgOppScore}</span>
+                </div>
+        `;
+
+        // Серия
+        if (streak.count > 1) {
+            const streakEmoji = streak.type === 'win' ? '🔥' : '❄️';
+            const streakText = streak.type === 'win' ? 'побед' : 'поражений';
+            html += `
+                <div class="status-item">
+                    <span class="status-label">Серия:</span>
+                    <span class="status-value">${streakEmoji} ${streak.count} ${streakText}</span>
+                </div>
+            `;
+        }
+
+        html += `</div>`;
+    }
+
+    // Кнопки
     html += `
         <button class="btn ${enabled ? 'btn-danger' : 'btn-primary'}" id="toggle-btn">
             ${enabled ? '⏸ Выключить помощника' : '▶ Включить помощника'}

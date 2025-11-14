@@ -25,6 +25,8 @@
         "ai/card.js",
         "ai/rules.js",
         "ai/strategy.js",
+        "ai/scoring.js",
+        "ai/statistics.js",
         "content.js"
       ],
       "css": ["styles/extension.css"],

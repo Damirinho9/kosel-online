@@ -50,7 +50,7 @@ class KozelAI {
      * Анализ игровой ситуации
      */
     static _analyzeSituation(gameState) {
-        const { myCards, tableCards, myTeamScore, opponentScore, pointsInKon } = gameState;
+        const { myCards, tableCards, myTeamScore, opponentScore, pointsInKon, partner } = gameState;
 
         // Определяем кто берет взятку
         const isFirstInTrick = !tableCards || tableCards.length === 0;
@@ -71,6 +71,16 @@ class KozelAI {
             }
         }
 
+        // Анализ очков на столе (используем KozelScoring если доступен)
+        let trickPoints = 0;
+        let trickHasValuableCards = false;
+
+        if (tableCards && tableCards.length > 0 && typeof KozelScoring !== 'undefined') {
+            const trickValue = KozelScoring.evaluateTrickValue(tableCards);
+            trickPoints = trickValue.points;
+            trickHasValuableCards = trickValue.valuable;
+        }
+
         // Анализ счета
         const strategy = KozelRules.analyzeScoreStrategy(
             myTeamScore || 0,
@@ -89,6 +99,9 @@ class KozelAI {
             partnerWinning,
             opponentWinning,
             weAreWinning,
+            trickPoints,
+            trickHasValuableCards,
+            partner: partner || null,
             ...strategy,
             trapQueen: hasSevenClubs && queenClubsOnTable
         };
@@ -117,26 +130,44 @@ class KozelAI {
     static _strategyAggressive(gameState, legalCards, situation) {
         const { tableCards } = gameState;
 
-        // Если партнер берет - помогаем ему
+        // Если партнер берет - помогаем ему очковыми картами
         if (situation.partnerWinning) {
-            const highCards = KozelRules.sortCardsByAttackPriority(legalCards);
-            const highCard = highCards[0];
+            // Ищем очковые карты в руке
+            const pointCards = typeof KozelScoring !== 'undefined' ?
+                legalCards.filter(c => KozelScoring.isPointCard(c)) : [];
 
+            if (pointCards.length > 0) {
+                // Подбрасываем очковую карту партнёру
+                const sortedPoints = pointCards.sort((a, b) =>
+                    (KozelScoring.getCardPoints(b) - KozelScoring.getCardPoints(a))
+                );
+                return {
+                    card: sortedPoints[0],
+                    reasoning: `⚔️ Отдаем ${KozelScoring.getCardPoints(sortedPoints[0])} очков партнёру`
+                };
+            }
+
+            // Нет очковых - даем высокую карту
+            const highCards = KozelRules.sortCardsByAttackPriority(legalCards);
             return {
-                card: highCard,
-                reasoning: '⚔️ Поддерживаем партнера высокой картой'
+                card: highCards[0],
+                reasoning: '⚔️ Поддерживаем партнера'
             };
         }
 
-        // Если противник берет - пытаемся перебить
+        // Если противник берет - пытаемся перебить (особенно если очки на столе)
         if (situation.opponentWinning) {
-            const minWinCard = KozelRules.findMinimumCardToWin(legalCards, tableCards);
+            const shouldFight = situation.trickHasValuableCards || situation.trickPoints >= 10;
 
-            if (minWinCard) {
-                return {
-                    card: minWinCard,
-                    reasoning: '⚔️ Перебиваем и забираем очки'
-                };
+            if (shouldFight) {
+                const minWinCard = KozelRules.findMinimumCardToWin(legalCards, tableCards);
+
+                if (minWinCard) {
+                    return {
+                        card: minWinCard,
+                        reasoning: `⚔️ Забираем ${situation.trickPoints} очков!`
+                    };
+                }
             }
 
             // Не можем перебить - сбрасываем мусор
@@ -166,32 +197,64 @@ class KozelAI {
     static _strategyDefensive(gameState, legalCards, situation) {
         const { tableCards } = gameState;
 
-        // Если партнер берет - сбрасываем мусор
+        // Если партнер берет - сбрасываем мусор (НЕ очковые карты)
         if (situation.partnerWinning) {
-            const discardCards = KozelRules.sortCardsByDiscardPriority(legalCards);
+            // Ищем карты без очков
+            const nonPointCards = typeof KozelScoring !== 'undefined' ?
+                legalCards.filter(c => !KozelScoring.isPointCard(c)) : legalCards;
+
+            if (nonPointCards.length > 0) {
+                const discardCards = KozelRules.sortCardsByDiscardPriority(nonPointCards);
+                return {
+                    card: discardCards[0],
+                    reasoning: '🛡️ Сброс мусора: партнер берет'
+                };
+            }
+
+            // Только очковые - отдаем самую дешевую
+            const sortedByPoints = legalCards.slice().sort((a, b) => {
+                const aPoints = typeof KozelScoring !== 'undefined' ? KozelScoring.getCardPoints(a) : 0;
+                const bPoints = typeof KozelScoring !== 'undefined' ? KozelScoring.getCardPoints(b) : 0;
+                return aPoints - bPoints;
+            });
             return {
-                card: discardCards[0],
-                reasoning: '🛡️ Сброс: партнер берет'
+                card: sortedByPoints[0],
+                reasoning: '🛡️ Минимальные очки партнёру'
             };
         }
 
         // Если противник берет - минимизируем урон (не даем очков)
         if (situation.opponentWinning) {
             // Ищем карту с минимальным количеством очков
-            const cheapCards = legalCards.slice().sort((a, b) => a.getPoints() - b.getPoints());
+            const sortedByPoints = legalCards.slice().sort((a, b) => {
+                const aPoints = typeof KozelScoring !== 'undefined' ? KozelScoring.getCardPoints(a) : 0;
+                const bPoints = typeof KozelScoring !== 'undefined' ? KozelScoring.getCardPoints(b) : 0;
+                return aPoints - bPoints;
+            });
             return {
-                card: cheapCards[0],
+                card: sortedByPoints[0],
                 reasoning: '🛡️ Минимизируем очки противнику'
             };
         }
 
-        // Первый ход - играем безопасно
+        // Первый ход - играем безопасно (без очковых карт)
         if (situation.isFirstInTrick) {
-            // Играем средней силы карту
+            const nonPointCards = typeof KozelScoring !== 'undefined' ?
+                legalCards.filter(c => !KozelScoring.isPointCard(c)) : legalCards;
+
+            if (nonPointCards.length > 0) {
+                const middleIndex = Math.floor(nonPointCards.length / 2);
+                return {
+                    card: nonPointCards[middleIndex],
+                    reasoning: '🛡️ Безопасный заход'
+                };
+            }
+
+            // Только очковые - средняя
             const middleIndex = Math.floor(legalCards.length / 2);
             return {
                 card: legalCards[middleIndex],
-                reasoning: '🛡️ Безопасный заход'
+                reasoning: '🛡️ Осторожный заход'
             };
         }
 
