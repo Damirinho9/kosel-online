@@ -22,11 +22,19 @@
             const serializeCard = (cardData) => {
                 if (!cardData || !cardData.card) return null;
                 const card = cardData.card;
-                return {
-                    rank: card.val || card.rank || card.value || card.r,  // val - основное поле
-                    suit: card.suit || card.s,
-                    allowClick: cardData.allowClick || false
+
+                // Извлекаем значения напрямую и проверяем что они не undefined
+                const rank = card.val || card.rank || card.value || card.r || '';
+                const suit = card.suit || card.s || '';
+
+                // Создаем простой объект с примитивными значениями
+                const result = {
+                    rank: rank,
+                    suit: suit,
+                    allowClick: Boolean(cardData.allowClick)
                 };
+
+                return result;
             };
 
             return {
