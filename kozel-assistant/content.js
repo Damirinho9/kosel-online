@@ -18,8 +18,7 @@ class KozelAssistant {
         this.playerProfiles = null;
         this.lastPlayedCard = null;  // Для отслеживания последнего хода
 
-        // V2.0 Phase 3: Machine Learning
-        this.mlModel = null;
+        // V2.0 Phase 3: Machine Learning (через background)
         this.mlEnabled = false;
         this.mlStats = null;
 
@@ -27,7 +26,7 @@ class KozelAssistant {
         this.init();
         this.initStatistics();
         this.initAdaptiveAI();  // V2.0
-        this.initMachineLearning();  // V2.0 Phase 3
+        this.checkMLStatus();    // V2.0 Phase 3
     }
 
     init() {
@@ -95,35 +94,54 @@ class KozelAssistant {
     }
 
     /**
-     * V2.0 Phase 3: Инициализация Machine Learning
+     * V2.0 Phase 3: Проверка статуса ML в background
      */
-    async initMachineLearning() {
-        console.log('[Козёл Помощник ML] Загрузка TensorFlow.js...');
-
+    async checkMLStatus() {
         try {
-            // Загружаем TensorFlow.js
-            await mlLoader.loadTensorFlow();
+            const response = await chrome.runtime.sendMessage({ action: 'mlStatus' });
 
-            // Создаём ML модель
-            if (typeof KozelML !== 'undefined') {
-                this.mlModel = new KozelML();
+            if (response && response.available) {
+                this.mlEnabled = response.initialized;
+                this.mlStats = response.stats;
 
-                // Пытаемся загрузить сохранённую модель
-                const loaded = await this.mlModel.loadModel();
-
-                if (loaded) {
-                    this.mlEnabled = true;
-                    this.mlStats = this.mlModel.getStats();
-                    console.log('[Козёл Помощник ML] ✓ ML модель загружена');
+                if (response.initialized) {
+                    console.log('[Козёл Помощник ML] ✓ ML доступен в background');
                     console.log('[Козёл Помощник ML] Статистика:', this.mlStats);
                 } else {
-                    console.warn('[Козёл Помощник ML] ML модель не загружена');
+                    console.log('[Козёл Помощник ML] ML в background, требует обучения');
                 }
+            } else {
+                console.log('[Козёл Помощник ML] ML недоступен');
+                this.mlEnabled = false;
             }
         } catch (error) {
-            console.warn('[Козёл Помощник ML] ⚠️ ML недоступен (CSP ограничения страницы)');
-            console.log('[Козёл Помощник ML] Адаптивный AI V2.0 продолжит работу без ML');
+            console.warn('[Козёл Помощник ML] Ошибка проверки ML:', error);
             this.mlEnabled = false;
+        }
+    }
+
+    /**
+     * V2.0 Phase 3: ML предсказание через background
+     */
+    async getMLPrediction(gameState, legalCards) {
+        if (!this.mlEnabled) {
+            return null;
+        }
+
+        try {
+            const response = await chrome.runtime.sendMessage({
+                action: 'mlPredict',
+                data: { gameState, legalCards }
+            });
+
+            if (response && response.success && response.prediction) {
+                return response.prediction;
+            }
+
+            return null;
+        } catch (error) {
+            console.error('[Козёл Помощник ML] Ошибка ML предсказания:', error);
+            return null;
         }
     }
 
@@ -514,7 +532,7 @@ class KozelAssistant {
             }
 
             // V2.0 Phase 3: Обучаем ML модель
-            if (this.mlEnabled && this.mlModel) {
+            if (this.mlEnabled) {
                 console.log('[Козёл ML] Начинаем обучение после завершения игры...');
                 await this.trainMLModel();
             }
@@ -522,10 +540,10 @@ class KozelAssistant {
     }
 
     /**
-     * V2.0 Phase 3: Обучить ML модель на последних играх
+     * V2.0 Phase 3: Обучить ML модель на последних играх (через background)
      */
     async trainMLModel() {
-        if (!this.mlEnabled || !this.mlModel || !this.moveHistory) {
+        if (!this.mlEnabled || !this.moveHistory) {
             console.log('[Козёл ML] ML не активен или отсутствуют зависимости');
             return false;
         }
@@ -541,33 +559,20 @@ class KozelAssistant {
 
             console.log(`[Козёл ML] Подготовка ${rawData.length} обучающих примеров`);
 
-            // Кодируем данные для ML
-            const trainingData = [];
-            for (const example of rawData) {
-                const encodedState = this.mlModel.encoder.encodeGameState(example.state);
-                const encodedAction = this.mlModel.encoder.encodeAction(example.action);
+            // Отправляем данные на обучение в background
+            const response = await chrome.runtime.sendMessage({
+                action: 'mlTrain',
+                data: { trainingData: rawData }
+            });
 
-                trainingData.push({
-                    state: encodedState,
-                    action: encodedAction,
-                    reward: example.reward
-                });
-            }
-
-            // Обучаем модель
-            const success = await this.mlModel.train(trainingData);
-
-            if (success) {
-                // Сохраняем модель
-                await this.mlModel.saveModel();
-
+            if (response && response.success) {
                 // Обновляем статистику
-                this.mlStats = this.mlModel.getStats();
+                this.mlStats = response.stats;
 
                 console.log('[Козёл ML] ✓ Обучение завершено успешно');
                 return true;
             } else {
-                console.log('[Козёл ML] ✗ Обучение не удалось');
+                console.log('[Козёл ML] ✗ Обучение не удалось:', response?.error || 'unknown error');
                 return false;
             }
 
@@ -653,9 +658,12 @@ class KozelAssistant {
         console.log('[Козёл Помощник] МОЙ ХОД! Карт:', this.gameState.myCards.length);
 
         try {
+            // Получаем ML предсказание если доступно
+            const legalCards = KozelRules.getLegalCards(this.gameState.myCards, this.gameState.tableCards);
+            const mlPrediction = this.mlEnabled ? await this.getMLPrediction(this.gameState, legalCards) : null;
+
             // Получаем рекомендацию от ИИ (с ML если доступен)
-            const mlModelToUse = (this.mlEnabled && this.mlModel) ? this.mlModel : null;
-            const recommendation = await KozelAI.chooseCard(this.gameState, mlModelToUse);
+            const recommendation = await KozelAI.chooseCard(this.gameState, mlPrediction);
 
             console.log('[Козёл Помощник] Рекомендация:', recommendation);
 
