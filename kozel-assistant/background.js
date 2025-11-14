@@ -2,75 +2,38 @@
  * Background Service Worker для Козёл Помощник
  */
 
-// V2.0 Phase 3: ML в background service worker
-let mlInitialized = false;
-let mlModel = null;
-let mlEncoder = null;
-let mlLoadError = null;
-
-// Загружаем TensorFlow.js и ML модули
-try {
-    // Импортируем TensorFlow.js из локального файла
-    importScripts('lib/tf.min.js');
-
-    // Проверяем, что TensorFlow.js действительно загрузился
-    if (typeof tf === 'undefined') {
-        throw new Error('TensorFlow.js не загрузился. Возможно файл lib/tf.min.js пуст или поврежден.');
-    }
-
-    // Импортируем ML модули
-    importScripts('ai/card.js');
-    importScripts('ai/ml-encoder.js');
-    importScripts('ai/ml-model.js');
-
-    console.log('[Background ML] ✓ TensorFlow.js загружен:', tf.version.tfjs);
-
-    // Инициализируем ML
-    initializeML();
-} catch (error) {
-    mlLoadError = error.message;
-    console.warn('[Background ML] ⚠️ ML недоступен:', error.message);
-
-    if (error.message.includes('пуст') || error.message.includes('не загрузился')) {
-        console.log('[Background ML] 📥 Скачайте TensorFlow.js:');
-        console.log('[Background ML]    1. Откройте: https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js');
-        console.log('[Background ML]    2. Сохраните файл в kozel-assistant/lib/tf.min.js');
-        console.log('[Background ML]    3. Перезагрузите расширение');
-    }
-
-    console.log('[Background ML] ℹ️ Расширение продолжит работу без ML (основной AI работает)');
-}
+// V2.0 Phase 3: ML через Offscreen Document API
+// Service Worker CSP запрещает eval(), поэтому используем offscreen document
+let offscreenReady = false;
 
 /**
- * Инициализация ML модели
+ * Создание offscreen document для ML
  */
-async function initializeML() {
+async function setupOffscreenDocument() {
+    // Проверяем, существует ли уже offscreen document
+    const existingContexts = await chrome.runtime.getContexts({
+        contextTypes: ['OFFSCREEN_DOCUMENT']
+    });
+
+    if (existingContexts.length > 0) {
+        offscreenReady = true;
+        return;
+    }
+
+    // Создаем offscreen document
     try {
-        if (typeof tf === 'undefined') {
-            throw new Error('TensorFlow.js не загружен');
-        }
+        await chrome.offscreen.createDocument({
+            url: 'offscreen.html',
+            reasons: ['WORKERS'], // ML computations
+            justification: 'TensorFlow.js для ML предсказаний требует выполнения кода (обход CSP Service Worker)'
+        });
 
-        if (typeof MLStateEncoder === 'undefined' || typeof KozelML === 'undefined') {
-            throw new Error('ML модули не загружены');
-        }
-
-        mlEncoder = new MLStateEncoder();
-        mlModel = new KozelML();
-
-        // Загружаем сохранённую модель
-        const loaded = await mlModel.loadModel();
-
-        mlInitialized = loaded;
-
-        if (loaded) {
-            console.log('[Background ML] ✓ ML модель инициализирована');
-        } else {
-            console.log('[Background ML] ML модель создана, требует обучения');
-        }
+        offscreenReady = true;
+        console.log('[Background] ✓ Offscreen document создан для ML');
 
     } catch (error) {
-        console.error('[Background ML] Ошибка инициализации:', error);
-        mlInitialized = false;
+        console.error('[Background] ✗ Не удалось создать offscreen document:', error);
+        offscreenReady = false;
     }
 }
 
@@ -87,112 +50,57 @@ chrome.runtime.onInstalled.addListener(() => {
             recommendationsGiven: 0
         }
     });
+
+    // Создаем offscreen document для ML
+    setupOffscreenDocument();
 });
+
+// Создаем offscreen document при запуске service worker
+setupOffscreenDocument();
 
 // Обработка сообщений
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
+    // Пропускаем сообщения от offscreen document (они предназначены для content.js)
+    if (sender.url && sender.url.includes('offscreen.html')) {
+        return;
+    }
+
     if (request.action === 'updateStats') {
         updateStats(request.data);
         sendResponse({ success: true });
     }
 
-    // V2.0 Phase 3: ML предсказания
-    else if (request.action === 'mlPredict') {
-        handleMLPredict(request.data)
+    // V2.0 Phase 3: ML запросы → перенаправляем в offscreen document
+    else if (request.action === 'mlPredict' || request.action === 'mlTrain' || request.action === 'mlStatus') {
+        forwardToOffscreen(request)
             .then(result => sendResponse(result))
             .catch(error => sendResponse({ error: error.message }));
         return true; // Async response
-    }
-
-    else if (request.action === 'mlTrain') {
-        handleMLTrain(request.data)
-            .then(result => sendResponse(result))
-            .catch(error => sendResponse({ error: error.message }));
-        return true; // Async response
-    }
-
-    else if (request.action === 'mlStatus') {
-        sendResponse({
-            initialized: mlInitialized,
-            available: typeof tf !== 'undefined',
-            stats: mlModel ? mlModel.getStats() : null,
-            error: mlLoadError
-        });
     }
 
     return true;
 });
 
 /**
- * ML предсказание лучшей карты
+ * Перенаправление ML запросов в offscreen document
  */
-async function handleMLPredict(data) {
+async function forwardToOffscreen(request) {
     try {
-        if (!mlInitialized || !mlModel) {
-            return { error: 'ML не инициализирован' };
+        // Убеждаемся, что offscreen document создан
+        if (!offscreenReady) {
+            await setupOffscreenDocument();
         }
 
-        const { gameState, legalCards } = data;
+        if (!offscreenReady) {
+            return { error: 'Offscreen document недоступен' };
+        }
 
-        // Делаем предсказание
-        const prediction = await mlModel.predictBestCard(gameState, legalCards);
-
-        return {
-            success: true,
-            prediction: prediction
-        };
+        // Отправляем запрос в offscreen document
+        const response = await chrome.runtime.sendMessage(request);
+        return response;
 
     } catch (error) {
-        console.error('[Background ML] Ошибка предсказания:', error);
-        return { error: error.message };
-    }
-}
-
-/**
- * ML обучение
- */
-async function handleMLTrain(data) {
-    try {
-        if (!mlInitialized || !mlModel || !mlEncoder) {
-            return { error: 'ML не инициализирован' };
-        }
-
-        const { trainingData } = data;
-
-        if (!trainingData || trainingData.length === 0) {
-            return { error: 'Нет данных для обучения' };
-        }
-
-        // Кодируем данные
-        const encodedData = [];
-        for (const example of trainingData) {
-            const encodedState = mlEncoder.encodeGameState(example.state);
-            const encodedAction = mlEncoder.encodeAction(example.action);
-
-            encodedData.push({
-                state: encodedState,
-                action: encodedAction,
-                reward: example.reward
-            });
-        }
-
-        // Обучаем
-        const success = await mlModel.train(encodedData);
-
-        if (success) {
-            // Сохраняем модель
-            await mlModel.saveModel();
-
-            return {
-                success: true,
-                stats: mlModel.getStats()
-            };
-        } else {
-            return { error: 'Обучение не удалось' };
-        }
-
-    } catch (error) {
-        console.error('[Background ML] Ошибка обучения:', error);
+        console.error('[Background] Ошибка перенаправления в offscreen:', error);
         return { error: error.message };
     }
 }
