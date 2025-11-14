@@ -23,7 +23,7 @@
                 if (!cardData || !cardData.card) return null;
                 const card = cardData.card;
                 return {
-                    rank: card.rank || card.value || card.r,
+                    rank: card.val || card.rank || card.value || card.r,  // val - основное поле
                     suit: card.suit || card.s,
                     allowClick: cardData.allowClick || false
                 };
@@ -41,7 +41,7 @@
                     right: scope.rightPlayerName || ''
                 },
                 score: scope.scoreWindow?.gameScore || [0, 0],
-                myTurn: scope.bottomCards?.some(c => c.allowClick) || false
+                myTurn: scope.currentMove === 'bottom'  // Определяем ход по currentMove
             };
         } catch(e) {
             console.error('[Козёл Помощник] Ошибка получения scope:', e);
