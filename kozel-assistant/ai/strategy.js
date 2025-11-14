@@ -53,8 +53,8 @@ class KozelAI {
         const situation = this._analyzeSituation(gameState);
 
         console.log('[AI V2.0] Базовая ситуация:', {
-            playAggressive: situation.playAggressive?.toFixed(2),
-            playDefensive: situation.playDefensive?.toFixed(2),
+            playAggressive: typeof situation.playAggressive === 'number' ? situation.playAggressive.toFixed(2) : situation.playAggressive,
+            playDefensive: typeof situation.playDefensive === 'number' ? situation.playDefensive.toFixed(2) : situation.playDefensive,
             partnerWinning: situation.partnerWinning,
             opponentWinning: situation.opponentWinning
         });
@@ -69,9 +69,10 @@ class KozelAI {
         // Логирование адаптации
         if (beforeAdapt.aggressive !== situation.playAggressive ||
             beforeAdapt.defensive !== situation.playDefensive) {
+            const formatValue = (val) => typeof val === 'number' ? val.toFixed(2) : val;
             console.log('[AI V2.0] ⚙️ Адаптация стратегии:', {
-                before: { agg: beforeAdapt.aggressive?.toFixed(2), def: beforeAdapt.defensive?.toFixed(2) },
-                after: { agg: situation.playAggressive?.toFixed(2), def: situation.playDefensive?.toFixed(2) }
+                before: { agg: formatValue(beforeAdapt.aggressive), def: formatValue(beforeAdapt.defensive) },
+                after: { agg: formatValue(situation.playAggressive), def: formatValue(situation.playDefensive) }
             });
         }
 

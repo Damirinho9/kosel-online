@@ -121,7 +121,8 @@ class KozelAssistant {
                 }
             }
         } catch (error) {
-            console.error('[Козёл Помощник ML] Ошибка инициализации ML:', error);
+            console.warn('[Козёл Помощник ML] ⚠️ ML недоступен (CSP ограничения страницы)');
+            console.log('[Козёл Помощник ML] Адаптивный AI V2.0 продолжит работу без ML');
             this.mlEnabled = false;
         }
     }

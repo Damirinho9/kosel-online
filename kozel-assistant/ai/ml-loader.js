@@ -57,8 +57,8 @@ class MLLoader {
             };
 
             script.onerror = (error) => {
-                console.error('[ML Loader] ✗ Ошибка загрузки TensorFlow.js:', error);
-                console.error('[ML Loader] Попробуйте проверить интернет соединение');
+                console.warn('[ML Loader] ⚠️ TensorFlow.js не загружен (CSP ограничение страницы)');
+                console.warn('[ML Loader] ML функции будут недоступны, но основной AI продолжит работу');
                 reject(error);
             };
 
