@@ -21,7 +21,7 @@ async function loadGameState() {
         const response = await chrome.tabs.sendMessage(tab.id, { action: 'getGameState' });
 
         if (response && response.gameState) {
-            renderGameState(response.gameState, response.enabled, response.stats);
+            renderGameState(response.gameState, response.enabled, response.stats, response.playerProfiles);
         } else {
             showWaiting();
         }
@@ -32,7 +32,7 @@ async function loadGameState() {
     }
 }
 
-function renderGameState(gameState, enabled, stats) {
+function renderGameState(gameState, enabled, stats, playerProfiles) {
     const { myCards, tableCards, myTurn, teams, partner, scoreWindow, recommendation } = gameState;
 
     let html = `
@@ -141,6 +141,49 @@ function renderGameState(gameState, enabled, stats) {
         }
 
         html += `</div>`;
+    }
+
+    // V2.0: Профили игроков
+    if (playerProfiles) {
+        const profiles = [
+            { name: 'Партнёр', profile: playerProfiles.top, emoji: '🤝' },
+            { name: 'Слева', profile: playerProfiles.left, emoji: '👈' },
+            { name: 'Справа', profile: playerProfiles.right, emoji: '👉' }
+        ];
+
+        const hasProfiles = profiles.some(p => p.profile && p.profile.analysis && p.profile.analysis.confidence > 0.3);
+
+        if (hasProfiles) {
+            html += `
+                <div class="status" style="background: rgba(0, 0, 0, 0.4); margin-top: 15px;">
+                    <div style="font-weight: bold; margin-bottom: 10px; text-align: center;">🎭 Профили игроков</div>
+            `;
+
+            for (const { name, profile, emoji } of profiles) {
+                if (profile && profile.analysis && profile.analysis.confidence > 0.3) {
+                    const styleEmoji = {
+                        'aggressive': '⚔️',
+                        'defensive': '🛡️',
+                        'risky': '🎲',
+                        'assertive': '💪',
+                        'balanced': '⚖️'
+                    };
+
+                    html += `
+                        <div style="margin: 8px 0; padding: 8px; background: rgba(255,255,255,0.05); border-radius: 4px;">
+                            <div style="font-size: 11px; font-weight: bold; margin-bottom: 3px;">
+                                ${emoji} ${profile.name}
+                            </div>
+                            <div style="font-size: 10px; color: #aaa;">
+                                ${styleEmoji[profile.analysis.style] || '⚖️'} ${profile.analysis.description}
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            html += `</div>`;
+        }
     }
 
     // Кнопки

@@ -28,18 +28,48 @@ class KozelAI {
         // Анализируем ситуацию
         const situation = this._analyzeSituation(gameState);
 
+        console.log('[AI V2.0] Базовая ситуация:', {
+            playAggressive: situation.playAggressive?.toFixed(2),
+            playDefensive: situation.playDefensive?.toFixed(2),
+            partnerWinning: situation.partnerWinning,
+            opponentWinning: situation.opponentWinning
+        });
+
+        // V2.0: Адаптация на основе профилей игроков
+        const beforeAdapt = {
+            aggressive: situation.playAggressive,
+            defensive: situation.playDefensive
+        };
+        this._adaptStrategyToPlayers(situation, gameState);
+
+        // Логирование адаптации
+        if (beforeAdapt.aggressive !== situation.playAggressive ||
+            beforeAdapt.defensive !== situation.playDefensive) {
+            console.log('[AI V2.0] ⚙️ Адаптация стратегии:', {
+                before: { agg: beforeAdapt.aggressive?.toFixed(2), def: beforeAdapt.defensive?.toFixed(2) },
+                after: { agg: situation.playAggressive?.toFixed(2), def: situation.playDefensive?.toFixed(2) }
+            });
+        }
+
         // Выбираем стратегию
         let result;
+        let strategyUsed = 'default';
 
         if (situation.trapQueen) {
             result = this._strategyTrapQueen(gameState, legalCards, situation);
+            strategyUsed = 'trapQueen';
         } else if (situation.playAggressive) {
             result = this._strategyAggressive(gameState, legalCards, situation);
+            strategyUsed = 'aggressive';
         } else if (situation.playDefensive) {
             result = this._strategyDefensive(gameState, legalCards, situation);
+            strategyUsed = 'defensive';
         } else {
             result = this._strategyDefault(gameState, legalCards, situation);
+            strategyUsed = 'default';
         }
+
+        console.log(`[AI V2.0] ✓ Выбрана стратегия: ${strategyUsed} → ${result.card.toString()}`);
 
         // Находим индекс в оригинальном массиве
         result.cardIndex = myCards.indexOf(result.card);
@@ -341,6 +371,83 @@ class KozelAI {
             card: discardCards[0],
             reasoning: '🎴 Стандартный ход'
         };
+    }
+
+    /**
+     * V2.0: Адаптировать стратегию на основе профилей игроков
+     */
+    static _adaptStrategyToPlayers(situation, gameState) {
+        const { partnerProfile, opponentProfiles } = gameState;
+
+        if (!partnerProfile && !opponentProfiles) return;
+
+        // Анализ партнёра
+        if (partnerProfile && partnerProfile.analysis) {
+            const partnerStyle = partnerProfile.analysis.style;
+            const confidence = partnerProfile.analysis.confidence;
+
+            console.log(`[AI V2.0] Профиль партнёра: ${partnerProfile.name} - ${partnerStyle} (${(confidence * 100).toFixed(0)}%)`);
+
+            // Если достаточно уверенности в профиле
+            if (confidence > 0.3) {
+                switch (partnerStyle) {
+                    case 'aggressive':
+                        // Партнёр агрессивный - даём ему больше очков
+                        console.log('[AI V2.0] → Партнёр агрессивный: +0.2 агрессия');
+                        situation.partnerIsAggressive = true;
+                        situation.playAggressive = Math.min(situation.playAggressive + 0.2, 1.0);
+                        break;
+
+                    case 'defensive':
+                        // Партнёр осторожный - играем более агрессивно
+                        console.log('[AI V2.0] → Партнёр осторожный: +0.1 агрессия');
+                        situation.partnerIsDefensive = true;
+                        situation.playAggressive = Math.min(situation.playAggressive + 0.1, 1.0);
+                        break;
+
+                    case 'risky':
+                        // Партнёр рискует - будем осторожнее
+                        console.log('[AI V2.0] → Партнёр рискует: +0.1 защита');
+                        situation.playDefensive = Math.min(situation.playDefensive + 0.1, 1.0);
+                        break;
+                }
+            }
+        }
+
+        // Анализ противников
+        if (opponentProfiles) {
+            let aggressiveOpponents = 0;
+            let defensiveOpponents = 0;
+
+            for (const [position, profile] of Object.entries(opponentProfiles)) {
+                if (profile && profile.analysis && profile.analysis.confidence > 0.3) {
+                    const style = profile.analysis.style;
+                    console.log(`[AI V2.0] Противник ${position}: ${profile.name} - ${style}`);
+
+                    if (style === 'aggressive' || style === 'risky') {
+                        aggressiveOpponents++;
+                        situation.opponentsAreAggressive = true;
+                    } else if (style === 'defensive') {
+                        defensiveOpponents++;
+                        situation.opponentsAreDefensive = true;
+                    }
+                }
+            }
+
+            // Адаптация против агрессивных противников
+            if (aggressiveOpponents >= 1) {
+                // Играем более защитно против агрессии
+                console.log(`[AI V2.0] → ${aggressiveOpponents} агрессивных противников: +0.15 защита`);
+                situation.playDefensive = Math.min(situation.playDefensive + 0.15, 1.0);
+            }
+
+            // Адаптация против защитных противников
+            if (defensiveOpponents >= 1) {
+                // Можем играть более агрессивно
+                console.log(`[AI V2.0] → ${defensiveOpponents} защитных противников: +0.15 агрессия`);
+                situation.playAggressive = Math.min(situation.playAggressive + 0.15, 1.0);
+            }
+        }
     }
 
     /**

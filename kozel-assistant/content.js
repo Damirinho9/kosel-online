@@ -36,7 +36,12 @@ class KozelAssistant {
         // Слушаем сообщения от popup
         chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
             if (msg.action === 'getGameState') {
-                sendResponse({ gameState: this.gameState, enabled: this.enabled, stats: this.stats });
+                sendResponse({
+                    gameState: this.gameState,
+                    enabled: this.enabled,
+                    stats: this.stats,
+                    playerProfiles: this.playerProfiles  // V2.0
+                });
             } else if (msg.action === 'toggle') {
                 this.enabled = !this.enabled;
                 this.updateOverlay();
@@ -191,6 +196,26 @@ class KozelAssistant {
             `;
         }
 
+        // V2.0: Профили игроков
+        if (this.playerProfiles && this.playerProfiles.top) {
+            const partnerProfile = this.playerProfiles.top;
+            if (partnerProfile.analysis && partnerProfile.analysis.confidence > 0.3) {
+                const style = partnerProfile.analysis.style;
+                const styleEmoji = {
+                    'aggressive': '⚔️',
+                    'defensive': '🛡️',
+                    'risky': '🎲',
+                    'assertive': '💪',
+                    'balanced': '⚖️'
+                };
+                html += `
+                    <div style="font-size: 10px; color: #aaa; margin: 3px 0;">
+                        Стиль: ${styleEmoji[style] || '⚖️'} ${partnerProfile.analysis.description}
+                    </div>
+                `;
+            }
+        }
+
         if (!myTurn) {
             html += '<div class="ka-waiting">⏳ Ожидание вашего хода...</div>';
         } else if (recommendation) {
@@ -220,7 +245,12 @@ class KozelAssistant {
         setInterval(async () => {
             if (!this.enabled) return;
 
+            const previousState = this.gameState;
             await this.parseGameState();
+
+            // V2.0: Детекция ходов и запись в историю
+            await this.detectAndRecordMoves(previousState);
+
             this.updateRecommendations();
         }, 1000);
     }
@@ -325,6 +355,127 @@ class KozelAssistant {
             left: this.playerProfiles.left,
             right: this.playerProfiles.right
         };
+    }
+
+    /**
+     * V2.0: Детекция и запись ходов
+     */
+    async detectAndRecordMoves(previousState) {
+        if (!this.gameState || !previousState) return;
+        if (!this.profiler && !this.moveHistory) return;
+
+        const { tableCards, myCards, players } = this.gameState;
+        const prevTableCards = previousState.tableCards || [];
+
+        // Детекция новой карты на столе
+        if (tableCards.length > prevTableCards.length) {
+            const newCard = tableCards[tableCards.length - 1];
+            const { player, card } = newCard;
+
+            console.log(`[Козёл V2.0] Обнаружен ход: ${player} сыграл ${card.toString()}`);
+
+            // Определяем имя игрока
+            const playerName = this.getPlayerName(player, players);
+
+            // Определяем кто берет взятку
+            const trickWinner = tableCards.length === 4 ? KozelRules.getTrickWinner(tableCards) : null;
+            const trickWon = trickWinner === player;
+
+            // Подсчёт очков во взятке
+            let trickPoints = 0;
+            if (typeof KozelScoring !== 'undefined' && tableCards.length === 4) {
+                trickPoints = KozelScoring.evaluateTrickValue(tableCards).points;
+            }
+
+            // Записываем в профайлер
+            if (this.profiler && playerName) {
+                await this.profiler.recordMove(playerName, {
+                    card: card,
+                    isFirstInTrick: tableCards.length === 1,
+                    trickWon: trickWon,
+                    trickPoints: trickPoints,
+                    tableCards: tableCards,
+                    gameScore: {
+                        myScore: this.gameState.myTeamScore,
+                        opponentScore: this.gameState.opponentScore
+                    }
+                });
+
+                console.log(`[Козёл V2.0] ✓ Ход записан в профайлер: ${playerName}`);
+            }
+
+            // Записываем в историю ходов (только свои ходы)
+            if (this.moveHistory && player === 'bottom') {
+                const recommendation = this.gameState.recommendation;
+                const wasRecommended = recommendation &&
+                    card.rank === recommendation.card.rank &&
+                    card.suit === recommendation.card.suit;
+
+                await this.moveHistory.recordMove({
+                    myCards: previousState.myCards || [],
+                    tableCards: prevTableCards,
+                    myScore: this.gameState.myTeamScore,
+                    opponentScore: this.gameState.opponentScore,
+                    playedCard: card,
+                    wasRecommended: wasRecommended,
+                    aiRecommendation: recommendation?.card || null,
+                    trickWon: trickWon,
+                    pointsGained: trickWon ? trickPoints : 0,
+                    whoWonTrick: trickWinner,
+                    myTurn: previousState.myTurn,
+                    isFirstInTrick: prevTableCards.length === 0,
+                    partner: this.gameState.partner,
+                    players: players
+                });
+
+                console.log(`[Козёл V2.0] ✓ Свой ход записан в историю`);
+            }
+        }
+
+        // Детекция окончания взятки (стол очистился)
+        if (prevTableCards.length === 4 && tableCards.length === 0) {
+            console.log('[Козёл V2.0] Взятка завершена, стол очищен');
+        }
+
+        // Детекция окончания игры
+        if (previousState.scoreWindow && !previousState.scoreWindow.visible &&
+            this.gameState.scoreWindow && this.gameState.scoreWindow.visible) {
+
+            console.log('[Козёл V2.0] Игра завершена');
+
+            // Записываем результат в историю
+            if (this.moveHistory) {
+                const result = {
+                    result: this.gameState.scoreWindow.win ? 'win' : 'loss',
+                    finalScore: {
+                        myGames: this.gameState.teams.myGames,
+                        opponentGames: this.gameState.teams.opponentGames,
+                        myScore: this.gameState.teams.myScore,
+                        opponentScore: this.gameState.teams.opponentScore
+                    },
+                    partner: this.gameState.partner
+                };
+
+                await this.moveHistory.endGame(result);
+                console.log('[Козёл V2.0] ✓ Результат игры записан');
+            }
+
+            // Сохраняем профили
+            if (this.profiler) {
+                await this.profiler.saveProfiles();
+                console.log('[Козёл V2.0] ✓ Профили игроков сохранены');
+            }
+        }
+    }
+
+    /**
+     * Получить имя игрока по позиции
+     */
+    getPlayerName(position, players) {
+        if (!players || !players[position]) {
+            return `Player_${position}`;
+        }
+        return players[position].name || players[position].username || `Player_${position}`;
     }
 
     /**
