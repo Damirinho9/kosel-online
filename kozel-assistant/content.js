@@ -249,20 +249,33 @@ class KozelAssistant {
      * Обновить рекомендации
      */
     updateRecommendations() {
-        if (!this.gameState || !this.gameState.myTurn) {
+        if (!this.gameState) {
+            console.log('[Козёл Помощник] Нет gameState');
             this.clearHighlight();
             this.updateOverlay();
             return;
         }
 
+        if (!this.gameState.myTurn) {
+            console.log('[Козёл Помощник] Не мой ход, myTurn:', this.gameState.myTurn);
+            this.clearHighlight();
+            this.updateOverlay();
+            return;
+        }
+
+        console.log('[Козёл Помощник] МОЙ ХОД! Карт:', this.gameState.myCards.length);
+
         try {
             // Получаем рекомендацию от ИИ
             const recommendation = KozelAI.chooseCard(this.gameState);
+
+            console.log('[Козёл Помощник] Рекомендация:', recommendation);
 
             if (recommendation) {
                 this.gameState.recommendation = recommendation;
                 this.highlightRecommendedCard(recommendation.cardIndex);
                 this.updateOverlay();
+                console.log('[Козёл Помощник] ✓ Рекомендация показана');
             }
 
         } catch (error) {
