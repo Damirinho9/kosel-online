@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Козёл Помощник",
-  "version": "1.0.0",
-  "description": "ИИ-помощник для игры в козла онлайн с умными подсказками",
+  "version": "2.0.0",
+  "description": "ИИ-помощник для игры в козла онлайн с адаптивными стратегиями и профилированием игроков",
 
   "permissions": [
     "activeTab",
@@ -27,6 +27,8 @@
         "ai/strategy.js",
         "ai/scoring.js",
         "ai/statistics.js",
+        "ai/profiler.js",
+        "ai/move-history.js",
         "content.js"
       ],
       "css": ["styles/extension.css"],

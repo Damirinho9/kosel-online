@@ -12,9 +12,16 @@ class KozelAssistant {
         this.stats = null;
         this.lastGameScore = null; // Для отслеживания конца игры
 
+        // V2.0: Профилирование и история
+        this.profiler = null;
+        this.moveHistory = null;
+        this.playerProfiles = null;
+        this.lastPlayedCard = null;  // Для отслеживания последнего хода
+
         console.log('[Козёл Помощник] Инициализация...');
         this.init();
         this.initStatistics();
+        this.initAdaptiveAI();  // V2.0
     }
 
     init() {
@@ -47,6 +54,24 @@ class KozelAssistant {
         if (typeof GameStatistics !== 'undefined') {
             this.statsManager = new GameStatistics();
             this.stats = await this.statsManager.getStats();
+        }
+    }
+
+    /**
+     * V2.0: Инициализация адаптивного AI
+     */
+    async initAdaptiveAI() {
+        // Инициализация профайлера
+        if (typeof PlayerProfiler !== 'undefined') {
+            this.profiler = new PlayerProfiler();
+            await this.profiler.loadProfiles();
+            console.log('[Козёл Помощник V2.0] Профайлер загружен');
+        }
+
+        // Инициализация истории ходов
+        if (typeof MoveHistory !== 'undefined') {
+            this.moveHistory = new MoveHistory();
+            console.log('[Козёл Помощник V2.0] История ходов активирована');
         }
     }
 
@@ -238,6 +263,9 @@ class KozelAssistant {
             // Проверка конца игры для записи статистики
             this.checkGameEnd();
 
+            // V2.0: Анализ игроков и профилирование
+            await this.analyzePlayersAndAdapt();
+
         } catch (error) {
             console.error('[Козёл Помощник] Ошибка парсинга:', error);
             this.gameState = null;
@@ -275,6 +303,28 @@ class KozelAssistant {
 
             this.lastGameScore = currentGameScore;
         }
+    }
+
+    /**
+     * V2.0: Анализировать игроков и адаптировать стратегию
+     */
+    async analyzePlayersAndAdapt() {
+        if (!this.profiler || !this.gameState) return;
+
+        const { players, partner } = this.gameState;
+
+        // Получаем профили всех игроков
+        this.playerProfiles = this.profiler.getGameSummary(players);
+
+        // Добавляем профили в gameState для AI
+        this.gameState.playerProfiles = this.playerProfiles;
+        this.gameState.partnerProfile = this.playerProfiles.top;  // Партнёр всегда top
+
+        // Определяем профили противников
+        this.gameState.opponentProfiles = {
+            left: this.playerProfiles.left,
+            right: this.playerProfiles.right
+        };
     }
 
     /**
