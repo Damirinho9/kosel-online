@@ -20,6 +20,7 @@ class KozelAssistant {
 
         // V2.0 Phase 3: Machine Learning (через background)
         this.mlEnabled = false;
+        this.mlInitialized = false;
         this.mlStats = null;
 
         console.log('[Козёл Помощник] Инициализация...');
@@ -101,22 +102,27 @@ class KozelAssistant {
             const response = await chrome.runtime.sendMessage({ action: 'mlStatus' });
 
             if (response && response.available) {
-                this.mlEnabled = response.initialized;
+                // ML доступна, если TensorFlow.js загружен (даже если модель не обучена)
+                this.mlEnabled = true;
+                this.mlInitialized = response.initialized;
                 this.mlStats = response.stats;
 
                 if (response.initialized) {
-                    console.log('[Козёл Помощник ML] ✓ ML доступен в background');
+                    console.log('[Козёл Помощник ML] ✓ ML доступен и обучен');
                     console.log('[Козёл Помощник ML] Статистика:', this.mlStats);
                 } else {
-                    console.log('[Козёл Помощник ML] ML в background, требует обучения');
+                    console.log('[Козёл Помощник ML] ✓ ML доступен, начнем обучение после игр');
                 }
             } else {
-                console.log('[Козёл Помощник ML] ML недоступен');
+                console.log('[Козёл Помощник ML] ⚠️ ML недоступен:', response?.error || 'TensorFlow.js не загружен');
+                console.log('[Козёл Помощник ML] Скачайте tf.min.js - см. INSTALL_TENSORFLOW.md');
                 this.mlEnabled = false;
+                this.mlInitialized = false;
             }
         } catch (error) {
             console.warn('[Козёл Помощник ML] Ошибка проверки ML:', error);
             this.mlEnabled = false;
+            this.mlInitialized = false;
         }
     }
 
@@ -124,7 +130,8 @@ class KozelAssistant {
      * V2.0 Phase 3: ML предсказание через background
      */
     async getMLPrediction(gameState, legalCards) {
-        if (!this.mlEnabled) {
+        // Используем ML только если модель обучена
+        if (!this.mlEnabled || !this.mlInitialized) {
             return null;
         }
 
