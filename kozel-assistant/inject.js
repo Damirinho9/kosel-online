@@ -18,9 +18,20 @@
             const scope = angular.element(gameTableDiv).scope();
             if (!scope) return null;
 
+            // Функция для сериализации карты (только данные, без функций)
+            const serializeCard = (cardData) => {
+                if (!cardData || !cardData.card) return null;
+                const card = cardData.card;
+                return {
+                    rank: card.rank || card.value || card.r,
+                    suit: card.suit || card.s,
+                    allowClick: cardData.allowClick || false
+                };
+            };
+
             return {
-                myCards: scope.bottomCards || [],
-                tableCards: scope.centreCards || [],
+                myCards: (scope.bottomCards || []).map(serializeCard).filter(c => c !== null),
+                tableCards: (scope.centreCards || []).map(serializeCard).filter(c => c !== null),
                 topCards: (scope.topCards || []).length,
                 leftCards: (scope.leftCards || []).length,
                 rightCards: (scope.rightCards || []).length,
