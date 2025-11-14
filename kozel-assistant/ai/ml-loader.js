@@ -29,23 +29,42 @@ class MLLoader {
                 return;
             }
 
-            // Загружаем TensorFlow.js с CDN
+            // Загружаем TensorFlow.js с CDN в контекст страницы
             const script = document.createElement('script');
             script.src = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js';
             script.async = true;
+            script.crossOrigin = 'anonymous';
 
             script.onload = () => {
-                this.tfLoaded = true;
-                console.log('[ML Loader] ✓ TensorFlow.js загружен:', tf.version.tfjs);
-                resolve(true);
+                // Ждем пока tf станет доступен
+                const checkTf = setInterval(() => {
+                    if (typeof tf !== 'undefined') {
+                        clearInterval(checkTf);
+                        this.tfLoaded = true;
+                        console.log('[ML Loader] ✓ TensorFlow.js загружен:', tf.version.tfjs);
+                        resolve(true);
+                    }
+                }, 100);
+
+                // Таймаут 10 секунд
+                setTimeout(() => {
+                    clearInterval(checkTf);
+                    if (!this.tfLoaded) {
+                        console.error('[ML Loader] ✗ Таймаут загрузки TensorFlow.js');
+                        reject(new Error('TensorFlow.js загрузка таймаут'));
+                    }
+                }, 10000);
             };
 
             script.onerror = (error) => {
                 console.error('[ML Loader] ✗ Ошибка загрузки TensorFlow.js:', error);
+                console.error('[ML Loader] Попробуйте проверить интернет соединение');
                 reject(error);
             };
 
-            document.head.appendChild(script);
+            // Добавляем в head страницы
+            (document.head || document.documentElement).appendChild(script);
+            console.log('[ML Loader] Загрузка TensorFlow.js с CDN...');
         });
 
         return this.tfLoadingPromise;

@@ -59,9 +59,5 @@
       "resources": ["inject.js"],
       "matches": ["https://kozel-online.com/*"]
     }
-  ],
-
-  "content_security_policy": {
-    "extension_pages": "script-src 'self' https://cdn.jsdelivr.net; object-src 'self'"
-  }
+  ]
 }
