@@ -56,7 +56,10 @@
 
   "web_accessible_resources": [
     {
-      "resources": ["inject.js"],
+      "resources": [
+        "inject.js",
+        "lib/tf.min.js"
+      ],
       "matches": ["https://kozel-online.com/*"]
     }
   ]

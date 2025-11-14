@@ -29,11 +29,10 @@ class MLLoader {
                 return;
             }
 
-            // Загружаем TensorFlow.js с CDN в контекст страницы
+            // Загружаем TensorFlow.js из локального файла расширения
             const script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js';
+            script.src = chrome.runtime.getURL('lib/tf.min.js');
             script.async = true;
-            script.crossOrigin = 'anonymous';
 
             script.onload = () => {
                 // Ждем пока tf станет доступен
@@ -57,14 +56,16 @@ class MLLoader {
             };
 
             script.onerror = (error) => {
-                console.warn('[ML Loader] ⚠️ TensorFlow.js не загружен (CSP ограничение страницы)');
-                console.warn('[ML Loader] ML функции будут недоступны, но основной AI продолжит работу');
+                console.warn('[ML Loader] ⚠️ TensorFlow.js не найден');
+                console.warn('[ML Loader] Файл lib/tf.min.js отсутствует или поврежден');
+                console.warn('[ML Loader] См. инструкцию: INSTALL_TENSORFLOW.md');
+                console.warn('[ML Loader] AI V2.0 продолжит работу без ML функций');
                 reject(error);
             };
 
             // Добавляем в head страницы
             (document.head || document.documentElement).appendChild(script);
-            console.log('[ML Loader] Загрузка TensorFlow.js с CDN...');
+            console.log('[ML Loader] Загрузка локального TensorFlow.js...');
         });
 
         return this.tfLoadingPromise;

@@ -1,0 +1,22 @@
+# TensorFlow.js library (large file, install locally)
+lib/tf.min.js
+
+# Node modules
+node_modules/
+
+# Build artifacts
+dist/
+build/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
