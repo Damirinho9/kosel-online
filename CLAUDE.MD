@@ -218,6 +218,7 @@ bash scripts/check_all.sh
 
 ### Ключевые ADR
 - docs/decisions/0001-offscreen-document-for-ml.md — Обход CSP ограничений для TensorFlow.js
+- docs/decisions/0002-fix-trump-order-and-queen-capture.md — Исправление критических ошибок правил игры
 
 ### Типичные проблемы
 См. подробный troubleshooting guide:
