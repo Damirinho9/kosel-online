@@ -1,0 +1,64 @@
+{
+  "manifest_version": 3,
+  "name": "Козёл Помощник",
+  "version": "2.0.0",
+  "description": "ИИ-помощник для игры в козла онлайн с адаптивными стратегиями и профилированием игроков",
+
+  "permissions": [
+    "activeTab",
+    "storage",
+    "scripting",
+    "offscreen"
+  ],
+
+  "host_permissions": [
+    "https://kozel-online.com/*"
+  ],
+
+  "background": {
+    "service_worker": "background.js"
+  },
+
+  "content_scripts": [
+    {
+      "matches": ["https://kozel-online.com/*"],
+      "js": [
+        "ai/card.js",
+        "ai/rules.js",
+        "ai/scoring.js",
+        "ai/statistics.js",
+        "ai/profiler.js",
+        "ai/move-history.js",
+        "ai/strategy.js",
+        "content.js"
+      ],
+      "css": ["styles/extension.css"],
+      "run_at": "document_end"
+    }
+  ],
+
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "inject.js",
+        "lib/tf.min.js"
+      ],
+      "matches": ["https://kozel-online.com/*"]
+    }
+  ]
+}
