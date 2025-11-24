@@ -44,7 +44,7 @@ chrome.runtime.onInstalled.addListener(() => {
     // Устанавливаем начальные настройки
     chrome.storage.local.set({
         enabled: true,
-        version: '2.0.0',
+        version: '2.0.1',
         stats: {
             gamesPlayed: 0,
             recommendationsGiven: 0
