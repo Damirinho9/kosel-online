@@ -121,34 +121,50 @@ class KozelRules {
 
     /**
      * Проверить поимку дамы треф
-     * Q♣ должна быть побита 7♣
+     * По правилам: "если дама треф и 7 треф легли в одну взятку от разных команд,
+     * кон немедленно заканчивается, и команда, положившая 7 треф, получает 4 очка"
+     *
+     * @returns {Object|null} { caught: true, winningTeam: 'team1'/'team2' } или null
      */
     static checkQueenClubsCatch(tableCards) {
         if (!tableCards || tableCards.length < 2) {
-            return false;
+            return null;
         }
 
-        let hasQueenClubs = false;
-        let hasSevenClubs = false;
-        let queenClubsIndex = -1;
-        let sevenClubsIndex = -1;
+        let queenClubsPlayer = null;
+        let sevenClubsPlayer = null;
 
-        for (let i = 0; i < tableCards.length; i++) {
-            const card = tableCards[i].card;
-
+        for (const {player, card} of tableCards) {
             if (card.rank === 'Q' && card.suit === 'clubs') {
-                hasQueenClubs = true;
-                queenClubsIndex = i;
+                queenClubsPlayer = player;
             }
 
             if (card.rank === '7' && card.suit === 'clubs') {
-                hasSevenClubs = true;
-                sevenClubsIndex = i;
+                sevenClubsPlayer = player;
             }
         }
 
-        // Оба должны быть в взятке и 7♣ должна быть после Q♣
-        return hasQueenClubs && hasSevenClubs && sevenClubsIndex > queenClubsIndex;
+        // Оба должны быть в взятке
+        if (!queenClubsPlayer || !sevenClubsPlayer) {
+            return null;
+        }
+
+        // Проверяем что они от РАЗНЫХ КОМАНД
+        // Команды: bottom-top (team1) vs left-right (team2)
+        const queenTeam = (queenClubsPlayer === 'bottom' || queenClubsPlayer === 'top') ? 'team1' : 'team2';
+        const sevenTeam = (sevenClubsPlayer === 'bottom' || sevenClubsPlayer === 'top') ? 'team1' : 'team2';
+
+        if (queenTeam === sevenTeam) {
+            // Одна команда - поимки нет
+            return null;
+        }
+
+        // Поимка! Команда с 7♣ получает 4 очка
+        return {
+            caught: true,
+            winningTeam: sevenTeam,
+            winningPlayer: sevenClubsPlayer
+        };
     }
 
     /**

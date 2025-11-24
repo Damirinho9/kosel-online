@@ -41,6 +41,9 @@ class Card {
      * Порядок козыря для сравнения силы
      * Чем больше число - тем старше козырь
      * Возвращает -1 если карта не является козырем
+     *
+     * ПРАВИЛЬНЫЙ порядок по гайду (от младшего к старшему):
+     * 8♣, 9♣, K♣, 10♣, A♣, J♦, J♥, J♠, J♣, Q♦, Q♥, Q♠, Q♣, 7♣
      */
     getTrumpOrder() {
         if (!this.isTrump()) {
@@ -49,20 +52,20 @@ class Card {
 
         // Иерархия козырей (от младшего к старшему)
         const order = {
-            '7_clubs': 0,       // 7♣ - самый младший
-            'Q_clubs': 1,       // Q♣
-            'Q_spades': 2,      // Q♠
-            'Q_hearts': 3,      // Q♥
-            'Q_diamonds': 4,    // Q♦
-            'J_clubs': 5,       // J♣
-            'J_spades': 6,      // J♠
-            'J_hearts': 7,      // J♥
-            'J_diamonds': 8,    // J♦
-            'A_clubs': 9,       // A♣
-            '10_clubs': 10,     // 10♣
-            'K_clubs': 11,      // K♣
-            '9_clubs': 12,      // 9♣
-            '8_clubs': 13       // 8♣ - самый старший
+            '8_clubs': 0,       // 8♣ - самый младший трефовый козырь
+            '9_clubs': 1,       // 9♣
+            'K_clubs': 2,       // K♣
+            '10_clubs': 3,      // 10♣
+            'A_clubs': 4,       // A♣
+            'J_diamonds': 5,    // J♦
+            'J_hearts': 6,      // J♥
+            'J_spades': 7,      // J♠
+            'J_clubs': 8,       // J♣
+            'Q_diamonds': 9,    // Q♦
+            'Q_hearts': 10,     // Q♥
+            'Q_spades': 11,     // Q♠
+            'Q_clubs': 12,      // Q♣
+            '7_clubs': 13       // 7♣ - САМЫЙ СТАРШИЙ КОЗЫРЬ!
         };
 
         const key = `${this.rank}_${this.suit}`;

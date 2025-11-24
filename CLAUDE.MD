@@ -185,13 +185,15 @@ spec → контекст → план → изменения → check → фи
 
 ---
 
-## [ПРОЕКТНАЯ СЕКЦИЯ — заполни под свой стек]
+## [ПРОЕКТНАЯ СЕКЦИЯ — Козёл Помощник]
 
 ### Стек проекта
-- Язык: [Python / TypeScript / Go / ...]
-- Фреймворк: [FastAPI / Nest / Next / ...]
-- Тесты: [pytest / jest / vitest / ...]
-- Линтер: [ruff / eslint / golangci-lint / ...]
+- **Язык:** JavaScript (ES6+)
+- **Платформа:** Chrome Extension Manifest V3
+- **ML библиотека:** TensorFlow.js 4.11.0
+- **Тесты:** Manual testing (автоматические тесты в планах V2.1)
+- **Линтер:** Node.js syntax check (`node -c`)
+- **Хранилище:** IndexedDB, chrome.storage.local
 
 ### Check-команда
 ```bash
@@ -199,11 +201,25 @@ spec → контекст → план → изменения → check → фи
 bash scripts/check_all.sh
 ```
 
+Включает:
+- Валидацию manifest.json
+- Проверку структуры файлов
+- Проверку ключевых функций
+- Базовую проверку синтаксиса JavaScript
+- Проверку TensorFlow.js установки
+
 ### Особо осторожные зоны
-- [путь к аутентификации]
-- [путь к интеграциям]
-- [путь к критичной логике]
+- **kozel-assistant/background.js** — setupOffscreenDocument(), forwardToOffscreen() (ML lifecycle)
+- **kozel-assistant/offscreen.js** — Вся ML логика (TensorFlow.js)
+- **kozel-assistant/ai/ml-encoder.js** — Кодирование состояния игры (размерность векторов)
+- **kozel-assistant/ai/ml-model.js** — Архитектура нейросети, save/load модели
+- **kozel-assistant/content.js** — Парсинг DOM kozel-online.com (селекторы могут устареть)
+- **kozel-assistant/manifest.json** — Permissions, content_scripts paths
 
 ### Ключевые ADR
-- docs/decisions/0001-... — [о чём]
-- docs/decisions/0002-... — [о чём]
+- docs/decisions/0001-offscreen-document-for-ml.md — Обход CSP ограничений для TensorFlow.js
+- docs/decisions/0002-fix-trump-order-and-queen-capture.md — Исправление критических ошибок правил игры
+
+### Типичные проблемы
+См. подробный troubleshooting guide:
+- docs/runbooks/troubleshooting.md
