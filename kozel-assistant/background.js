@@ -51,8 +51,7 @@ chrome.runtime.onInstalled.addListener(() => {
         }
     });
 
-    // Создаем offscreen document для ML
-    setupOffscreenDocument();
+    // Offscreen document создается автоматически при запуске Service Worker (см. ниже)
 });
 
 // Создаем offscreen document при запуске service worker
