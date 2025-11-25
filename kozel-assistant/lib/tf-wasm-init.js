@@ -9,18 +9,30 @@
     console.log('[TF-WASM] DEBUG: typeof window.tf =', typeof window.tf);
     console.log('[TF-WASM] DEBUG: typeof globalThis.tf =', typeof globalThis.tf);
 
+    if (typeof window.tf === 'object') {
+        console.log('[TF-WASM] DEBUG: window.tf keys:', Object.keys(window.tf));
+        console.log('[TF-WASM] DEBUG: window.tf.version =', window.tf.version);
+        console.log('[TF-WASM] DEBUG: window.tf.wasm =', typeof window.tf.wasm);
+    }
+
     try {
         // Ждем загрузки TensorFlow.js (до 5 секунд)
         let tfLoaded = false;
         for (let i = 0; i < 50; i++) {
-            if (typeof window.tf !== 'undefined' && window.tf.version) {
+            if (typeof window.tf !== 'undefined' && window.tf.version && window.tf.version.tfjs) {
+                console.log('[TF-WASM] DEBUG: Итерация', i, '- TF загружен!');
                 tfLoaded = true;
                 break;
+            }
+            if (i % 10 === 0) {
+                console.log('[TF-WASM] DEBUG: Итерация', i, '- ожидание tf.version.tfjs...');
             }
             await new Promise(resolve => setTimeout(resolve, 100));
         }
 
         if (!tfLoaded) {
+            console.error('[TF-WASM] DEBUG: После ожидания window.tf =', window.tf);
+            console.error('[TF-WASM] DEBUG: После ожидания window.tf.version =', window.tf?.version);
             throw new Error('TensorFlow.js Core не загружен после ожидания');
         }
 
