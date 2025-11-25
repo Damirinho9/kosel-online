@@ -135,10 +135,22 @@ class KozelAI {
         );
 
         // Проверка возможности поимки дамы треф
+        // ВАЖНО: ловить Q♣ нужно только если её положил ПРОТИВНИК (не партнер)
         const hasSevenClubs = myCards.some(c => c.rank === '7' && c.suit === 'clubs');
-        const queenClubsOnTable = tableCards?.some(({card}) =>
-            card.rank === 'Q' && card.suit === 'clubs'
-        );
+        let queenClubsFromOpponent = false;
+
+        if (tableCards && hasSevenClubs) {
+            for (const {player, card} of tableCards) {
+                if (card.rank === 'Q' && card.suit === 'clubs') {
+                    // Проверяем: это противник или партнер?
+                    const isPartner = KozelRules.isPartner('bottom', player);
+                    if (!isPartner && player !== 'bottom') {
+                        queenClubsFromOpponent = true;
+                        break;
+                    }
+                }
+            }
+        }
 
         return {
             isFirstInTrick,
@@ -149,7 +161,7 @@ class KozelAI {
             trickHasValuableCards,
             partner: partner || null,
             ...strategy,
-            trapQueen: hasSevenClubs && queenClubsOnTable
+            trapQueen: queenClubsFromOpponent
         };
     }
 
