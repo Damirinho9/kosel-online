@@ -5,9 +5,10 @@
     <title>ML Offscreen Document</title>
 </head>
 <body>
-    <!-- TensorFlow.js загружается здесь -->
-    <!-- Требуется локальный файл lib/tf.min.js - Manifest V3 не разрешает загрузку с CDN -->
-    <script src="lib/tf.min.js"></script>
+    <!-- TensorFlow.js несовместим с Chrome Extension Manifest V3 CSP -->
+    <!-- ML функции временно отключены до появления Manifest V3 support -->
+    <!-- См. docs/decisions/0003-tensorflow-manifest-v3-incompatibility.md -->
+    <!-- <script src="lib/tf.min.js"></script> -->
     <script src="ai/card.js"></script>
     <script src="ai/ml-encoder.js"></script>
     <script src="ai/ml-model.js"></script>
