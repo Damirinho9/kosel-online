@@ -32,11 +32,20 @@
             throw new Error('TensorFlow.js WASM backend не имеет метода setWasmPaths');
         }
 
-        // Устанавливаем путь к WASM файлам
-        tf.wasm.setWasmPaths('lib/');
+        // Устанавливаем путь к WASM файлам (используем только базовую версию)
+        tf.wasm.setWasmPaths({
+            'tfjs-backend-wasm.wasm': 'lib/tfjs-backend-wasm.wasm',
+            'tfjs-backend-wasm-simd.wasm': 'lib/tfjs-backend-wasm.wasm',
+            'tfjs-backend-wasm-threaded-simd.wasm': 'lib/tfjs-backend-wasm.wasm'
+        });
+
+        console.log('[TF-WASM] Устанавливаем WASM backend...');
 
         // Регистрируем WASM backend
         await tf.setBackend('wasm');
+
+        // Ждем полной инициализации
+        await tf.ready();
 
         console.log('[TF-WASM] ✓ WASM backend успешно инициализирован');
         console.log('[TF-WASM] Активный backend:', tf.getBackend());
