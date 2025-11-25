@@ -33,16 +33,23 @@
         }
 
         // Устанавливаем путь к WASM файлам (используем только базовую версию)
+        // ВАЖНО: Single-threaded режим для избежания Web Workers (blob: URLs заблокированы в Manifest V3)
         tf.wasm.setWasmPaths({
             'tfjs-backend-wasm.wasm': 'lib/tfjs-backend-wasm.wasm',
             'tfjs-backend-wasm-simd.wasm': 'lib/tfjs-backend-wasm.wasm',
             'tfjs-backend-wasm-threaded-simd.wasm': 'lib/tfjs-backend-wasm.wasm'
         });
 
-        console.log('[TF-WASM] Устанавливаем WASM backend...');
+        console.log('[TF-WASM] Устанавливаем WASM backend (single-threaded режим)...');
 
-        // Регистрируем WASM backend
+        // Регистрируем WASM backend с numThreads: 1 (отключаем Web Workers)
         await tf.setBackend('wasm');
+
+        // Отключаем threading явно
+        if (tf.env && tf.env().set) {
+            tf.env().set('WASM_HAS_MULTITHREAD_SUPPORT', false);
+            tf.env().set('WASM_HAS_SIMD_SUPPORT', false);
+        }
 
         // Ждем полной инициализации
         await tf.ready();
