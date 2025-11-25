@@ -29,9 +29,12 @@ async function setupOffscreenDocument() {
             // WASM версия (без eval() - РАБОТАЕТ в Manifest V3):
             // url: 'offscreen-wasm.html',  // См. INSTALL_TENSORFLOW_WASM.md
 
-            url: 'offscreen-wasm.html',  // WASM версия (single-threaded, без eval())
-            reasons: ['WORKERS'], // ML computations
-            justification: 'TensorFlow.js для ML предсказаний требует выполнения кода (обход CSP Service Worker)'
+            // Стандартная версия с graceful degradation
+            // ML недоступен в Manifest V3 из-за CSP ограничений
+            // См. docs/decisions/0003-tensorflow-manifest-v3-incompatibility.md
+            url: 'offscreen.html',
+            reasons: ['WORKERS'], // ML computations (currently unavailable)
+            justification: 'Offscreen document для ML операций (TensorFlow.js несовместим с Manifest V3 CSP)'
         });
 
         offscreenReady = true;
