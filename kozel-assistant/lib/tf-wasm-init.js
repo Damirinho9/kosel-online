@@ -16,36 +16,21 @@
     }
 
     try {
-        // Ждем загрузки TensorFlow.js (до 5 секунд)
-        let tfLoaded = false;
-        for (let i = 0; i < 50; i++) {
-            if (typeof window.tf !== 'undefined' && window.tf.version && window.tf.version.tfjs) {
-                console.log('[TF-WASM] DEBUG: Итерация', i, '- TF загружен!');
-                tfLoaded = true;
-                break;
-            }
-            if (i % 10 === 0) {
-                console.log('[TF-WASM] DEBUG: Итерация', i, '- ожидание tf.version.tfjs...');
-            }
-            await new Promise(resolve => setTimeout(resolve, 100));
-        }
-
-        if (!tfLoaded) {
-            console.error('[TF-WASM] DEBUG: После ожидания window.tf =', window.tf);
-            console.error('[TF-WASM] DEBUG: После ожидания window.tf.version =', window.tf?.version);
-            throw new Error('TensorFlow.js Core не загружен после ожидания');
-        }
-
         // Используем window.tf явно
         const tf = window.tf;
 
-        // Проверяем наличие WASM backend
-        if (typeof tf.wasm === 'undefined' || typeof tf.wasm.setWasmPaths === 'undefined') {
-            throw new Error('TensorFlow.js WASM backend не загружен');
+        // Проверяем, что tf загружен (проверяем наличие базовых функций вместо version)
+        if (!tf || typeof tf.tensor === 'undefined' || typeof tf.wasm === 'undefined') {
+            throw new Error('TensorFlow.js Core или WASM backend не загружены');
         }
 
-        console.log('[TF-WASM] ✓ TensorFlow.js Core загружен:', tf.version.tfjs);
+        console.log('[TF-WASM] ✓ TensorFlow.js Core загружен (keys:', Object.keys(tf).length, ')');
         console.log('[TF-WASM] ✓ WASM Backend загружен');
+
+        // Проверяем наличие setWasmPaths
+        if (typeof tf.wasm.setWasmPaths === 'undefined') {
+            throw new Error('TensorFlow.js WASM backend не имеет метода setWasmPaths');
+        }
 
         // Устанавливаем путь к WASM файлам
         tf.wasm.setWasmPaths('lib/');
@@ -65,10 +50,11 @@
 
         // Устанавливаем флаг готовности
         window.tfReady = true;
-        window.tfVersion = tf.version.tfjs;
+        window.tfVersion = tf.version?.tfjs || 'unknown (modular build)';
         window.tf = tf; // Убеждаемся, что tf доступен глобально
 
         console.log('[TF-WASM] ✓ TensorFlow.js WASM готов к использованию');
+        console.log('[TF-WASM] Version:', window.tfVersion);
 
     } catch (error) {
         console.error('[TF-WASM] ✗ Ошибка инициализации:', error);
