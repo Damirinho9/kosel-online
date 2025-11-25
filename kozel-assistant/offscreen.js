@@ -10,12 +10,23 @@ console.log('[ML Offscreen] Документ загружен');
 
 // Проверяем загрузку TensorFlow.js
 if (typeof tf === 'undefined') {
-    console.error('[ML Offscreen] ✗ TensorFlow.js не загружен');
+    console.warn('[ML Offscreen] ⚠️ TensorFlow.js не загружен');
+    console.warn('[ML Offscreen] Расширение работает без ML функций');
+    console.warn('[ML Offscreen] См. INSTALL_TENSORFLOW.md для инструкций');
 } else {
-    console.log('[ML Offscreen] ✓ TensorFlow.js загружен:', tf.version.tfjs);
+    try {
+        // Проверяем, может ли TensorFlow.js работать в этом окружении
+        console.log('[ML Offscreen] ✓ TensorFlow.js загружен:', tf.version.tfjs);
 
-    // Инициализируем ML
-    initializeML();
+        // Инициализируем ML
+        initializeML();
+    } catch (error) {
+        // TensorFlow.js может не работать из-за CSP ограничений Manifest V3
+        console.error('[ML Offscreen] ✗ TensorFlow.js несовместим с Manifest V3 CSP:', error.message);
+        console.warn('[ML Offscreen] ⚠️ ML функции недоступны из-за ограничений Chrome Extension');
+        console.warn('[ML Offscreen] Расширение продолжит работать без ML предсказаний');
+        console.info('[ML Offscreen] Подробнее: https://github.com/tensorflow/tfjs/issues/5429');
+    }
 }
 
 /**
