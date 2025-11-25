@@ -1,34 +1,71 @@
-// V2.0 Phase 3: ML в offscreen document (обход CSP ограничений Service Worker)
-// Offscreen Document API позволяет загружать TensorFlow.js без 'unsafe-eval' ограничений
+// V2.0 Phase 3.1: ML в offscreen document с WASM backend (Manifest V3 совместимая версия)
+// Использует модульный TensorFlow.js: @tensorflow/tfjs-core + @tensorflow/tfjs-backend-wasm
+// Не использует eval() - полностью совместимо с CSP Manifest V3
 
 let mlInitialized = false;
 let mlModel = null;
 let mlEncoder = null;
 let initializationPromise = null;
 
-console.log('[ML Offscreen] Документ загружен');
+console.log('[ML Offscreen WASM] Документ загружен');
 
-// Проверяем загрузку TensorFlow.js
-if (typeof tf === 'undefined') {
-    console.warn('[ML Offscreen] ⚠️ TensorFlow.js не загружен');
-    console.warn('[ML Offscreen] Расширение работает без ML функций');
-    console.warn('[ML Offscreen] См. INSTALL_TENSORFLOW.md для инструкций');
-} else {
-    try {
-        // Проверяем, может ли TensorFlow.js работать в этом окружении
-        console.log('[ML Offscreen] ✓ TensorFlow.js загружен:', tf.version.tfjs);
+// Ожидаем инициализации WASM backend
+async function waitForWasmReady() {
+    console.log('[ML Offscreen WASM] Ожидание инициализации WASM...');
 
-        // Инициализируем ML
-        initializeML();
-    } catch (error) {
-        // TensorFlow.js может не работать из-за CSP ограничений Manifest V3
-        console.error('[ML Offscreen] ✗ TensorFlow.js несовместим с Manifest V3 CSP:', error.message);
-        console.warn('[ML Offscreen] ⚠️ ML функции недоступны из-за ограничений Chrome Extension');
-        console.warn('[ML Offscreen] Расширение продолжит работать без ML предсказаний');
-        console.info('[ML Offscreen] Подробнее: https://github.com/tensorflow/tfjs/issues/5429');
+    // Ждем готовности WASM (максимум 5 секунд)
+    for (let i = 0; i < 50; i++) {
+        if (window.tfReady === true) {
+            console.log('[ML Offscreen WASM] ✓ WASM backend готов!');
+            return true;
+        }
+
+        if (window.tfError) {
+            console.error('[ML Offscreen WASM] ✗ Ошибка WASM:', window.tfError);
+            return false;
+        }
+
+        await new Promise(resolve => setTimeout(resolve, 100));
     }
+
+    console.error('[ML Offscreen WASM] ✗ Timeout ожидания WASM backend');
+    return false;
 }
 
+// Инициализация после готовности WASM
+(async function init() {
+    // Проверяем загрузку TensorFlow.js
+    if (typeof tf === 'undefined') {
+        console.warn('[ML Offscreen WASM] ⚠️ TensorFlow.js не загружен');
+        console.warn('[ML Offscreen WASM] Расширение работает без ML функций');
+        console.warn('[ML Offscreen WASM] См. INSTALL_TENSORFLOW_WASM.md для инструкций');
+        return;
+    }
+
+    // Ждем инициализации WASM
+    const wasmReady = await waitForWasmReady();
+
+    if (!wasmReady) {
+        console.error('[ML Offscreen WASM] ✗ WASM backend не инициализирован');
+        console.warn('[ML Offscreen WASM] ⚠️ ML функции недоступны');
+        console.warn('[ML Offscreen WASM] Расширение продолжит работать без ML');
+        return;
+    }
+
+    try {
+        console.log('[ML Offscreen WASM] ✓ TensorFlow.js WASM готов:', window.tfVersion);
+        console.log('[ML Offscreen WASM] Backend:', tf.getBackend());
+
+        // Инициализируем ML
+        await initializeML();
+
+    } catch (error) {
+        console.error('[ML Offscreen WASM] ✗ Ошибка инициализации ML:', error.message);
+        console.error('[ML Offscreen WASM] Stack:', error.stack);
+        console.warn('[ML Offscreen WASM] ⚠️ ML функции недоступны');
+        console.warn('[ML Offscreen WASM] Расширение продолжит работать без ML');
+    }
+})();
 /**
  * Инициализация ML модели
  */
