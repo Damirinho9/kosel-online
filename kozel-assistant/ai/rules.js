@@ -23,8 +23,14 @@ class KozelRules {
         const leadCard = tableCards[0].card;
         const leadSuit = leadCard.getSimpleSuit();
 
-        // Если зашли козырем - можно любую карту
+        // Если зашли козырем - нужно подкладывать козырь (если есть)
         if (leadSuit === null) {
+            const trumpCards = myCards.filter(card => card.isTrump());
+            // Если есть козыри - ОБЯЗАТЕЛЬНО подкладываем козырь
+            if (trumpCards.length > 0) {
+                return trumpCards;
+            }
+            // Нет козырей - можно любую карту
             return myCards;
         }
 
