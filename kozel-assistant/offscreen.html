@@ -5,9 +5,9 @@
     <title>ML Offscreen Document</title>
 </head>
 <body>
-    <!-- TensorFlow.js загружается здесь без CSP ограничений -->
-    <!-- Загружаем с CDN, так как offscreen document не подвержен CSP ограничениям Service Worker -->
-    <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.11.0/dist/tf.min.js"></script>
+    <!-- TensorFlow.js загружается здесь -->
+    <!-- Требуется локальный файл lib/tf.min.js - Manifest V3 не разрешает загрузку с CDN -->
+    <script src="lib/tf.min.js"></script>
     <script src="ai/card.js"></script>
     <script src="ai/ml-encoder.js"></script>
     <script src="ai/ml-model.js"></script>
