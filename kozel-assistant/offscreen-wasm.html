@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>ML Offscreen Document (WASM)</title>
+</head>
+<body>
+    <!-- Модульная версия TensorFlow.js с WASM backend (без eval) -->
+    <!-- Manifest V3 совместимая версия -->
+
+    <!-- 1. Загружаем TensorFlow.js Core -->
+    <script src="lib/tf-core.min.js"></script>
+
+    <!-- 2. Загружаем WASM Backend -->
+    <script src="lib/tf-backend-wasm.min.js"></script>
+
+    <!-- 3. Инициализация WASM -->
+    <script src="lib/tf-wasm-init.js"></script>
+
+    <!-- 4. Загружаем AI компоненты -->
+    <script src="ai/card.js"></script>
+    <script src="ai/ml-encoder.js"></script>
+    <script src="ai/ml-model.js"></script>
+
+    <!-- 5. Основной скрипт -->
+    <script src="offscreen-wasm.js"></script>
+</body>
+</html>

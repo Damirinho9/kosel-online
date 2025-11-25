@@ -23,7 +23,13 @@ async function setupOffscreenDocument() {
     // Создаем offscreen document
     try {
         await chrome.offscreen.createDocument({
-            url: 'offscreen.html',
+            // Стандартная версия (с eval() - НЕ РАБОТАЕТ в Manifest V3):
+            // url: 'offscreen.html',
+
+            // WASM версия (без eval() - РАБОТАЕТ в Manifest V3):
+            // url: 'offscreen-wasm.html',  // См. INSTALL_TENSORFLOW_WASM.md
+
+            url: 'offscreen.html',  // Измените на offscreen-wasm.html после установки WASM версии
             reasons: ['WORKERS'], // ML computations
             justification: 'TensorFlow.js для ML предсказаний требует выполнения кода (обход CSP Service Worker)'
         });
